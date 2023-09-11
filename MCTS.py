@@ -71,8 +71,9 @@ class Node:
                 childState = self.state.copy()
                 childBoard = self.board.copy()
                 childState, childBoard  = self.game.getNextState(childState, action, childBoard)
+                self.wins += 1 if childBoard.is_checkmate() else 0
                 childState = self.game.changePerspective(childState)
-                child = Node(self.game, self.args, childState, childBoard, self, action, wins = 1 if childBoard.is_checkmate() else 0, prob=prob)
+                child = Node(self.game, self.args, childState, childBoard, self, action, wins = 0, prob=prob)
                 self.children.append(child)
         return self
     
@@ -80,14 +81,10 @@ class Node:
     def backpropogate(self, value, wins):
         self.valueSum += value
         self.visitCount += 1
+
         if wins == 0:
-            for child in self.children:
-                wins += child.wins
-            wins *= -1
-
-        
-
-        if wins > 0:
+            wins = self.wins
+        elif wins > 0:
             self.wins += wins
 
         value *= -1
