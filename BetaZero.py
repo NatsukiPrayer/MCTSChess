@@ -19,8 +19,9 @@ class BetaZero:
         player = True
         state, board = self.game.getInitialState()
 
-
+        state = state * -1
         while True:
+            print(board)
             isTerminal = False
             neutralState = state * -1
             try:
