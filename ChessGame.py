@@ -20,17 +20,17 @@ class ChessGame:
                          [0 for i in range(self.colCount)],
                          [0 for i in range(self.colCount)],
                          [0 for i in range(self.colCount)],
-                         [0 for i in range(self.colCount)],
                          bPawns,
                          mainBPieces]), self.board)
     
     def getNextState(self, state, action, board):
+        
         try:
             action = int(action)
-            rowFrom = (action // 64) // 8
-            colFrom = (action // 64) % 8
-            rowWhere = (action % 64) // 8
-            colWhere = (action % 64) % 8 
+            rowFrom = action % 8
+            colFrom = action // 8 % 8
+            rowWhere = (action // 64) % 8
+            colWhere = (action // 512) % 8 
         except:
             action = str(action)
             rowFrom = int(action[1]) - 1
@@ -40,9 +40,6 @@ class ChessGame:
     
         fig = state[rowFrom, colFrom]
         uciMove = f'{self.letters[colFrom]}{rowFrom+1}{self.letters[colWhere]}{rowWhere+1}' 
-        print(list(board.legal_moves))
-        print(board.is_variant_end() or board.is_stalemate() or board.is_repetition() or board.is_variant_draw() or board.is_insufficient_material() or board.is_fifty_moves())
-        print(board)
         try:
             board.push_uci(uciMove)
         except chess.IllegalMoveError:
@@ -59,21 +56,21 @@ class ChessGame:
             pass
     
     def getValAndTerminate(self, board: chess.Board):
-        if board.is_variant_end() or board.is_stalemate() or board.is_repetition() or board.is_variant_draw() or board.is_insufficient_material() or board.is_fifty_moves():
-            if (
-            board.is_stalemate() or board.is_repetition() or board.is_variant_draw() or board.is_insufficient_material() or board.is_fifty_moves()
-            ):
-                return (0, True)
-            elif board.is_checkmate():
-                return (1, True)
+        if board.is_checkmate():
+            return (1, True)
+        elif board.is_variant_end() or board.is_stalemate() or board.is_repetition() or board.is_variant_draw() or board.is_insufficient_material() or board.is_fifty_moves():
+            return (0, True)
         return (0, False)
          
-
     def getValidMoves(self, board):
         return list(board.legal_moves)
 
     def changePerspective(self, state):
         return np.rot90(np.rot90((state * -1)))
+    
+    def getEncodedState(self, state):
+        encodedState = np.stack((state == -6,state == -5,state == -4,state == -3,state == -2,state == -1,state == 0,state == 6,state == 5,state == 4,state == 3,state == 2,state == 1)).astype(np.float32)
+        return encodedState
 
 
 
