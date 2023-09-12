@@ -14,6 +14,7 @@ class ChessGame:
         bPawns = [-1 for i in range(self.colCount)]
         mainWPieces = [2,3,4,5,6,4,3,2]
         mainBPieces = [-2,-3,-4,-5,-6,-4,-3,-2]
+        self.board.reset()
         return (np.array([mainWPieces,
                          wPawns,
                          [0 for i in range(self.colCount)],

@@ -5,6 +5,8 @@ import chess
 from progress.bar import Bar
 from NN import ResNet
 import torch
+import matplotlib.pyplot as plt
+from matplotlib.widgets import Button
 letters = ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h']
 
 def encode(inp: str):
@@ -71,7 +73,8 @@ class Node:
                 childState = self.state.copy()
                 childBoard = self.board.copy()
                 childState, childBoard  = self.game.getNextState(childState, action, childBoard)
-                self.wins += 1 if childBoard.is_checkmate() else 0
+                if childBoard.is_checkmate():
+                    self.wins += 1 
                 childState = self.game.changePerspective(childState)
                 child = Node(self.game, self.args, childState, childBoard, self, action, wins = 0, prob=prob)
                 self.children.append(child)
@@ -93,18 +96,57 @@ class Node:
             self.parent.backpropogate(value, wins)
 
 
+class Drawer:
+    def __init__(self, root: Node):
+        self.xStep = 5
+        self.yStep = -5
+        self.maxX = 0
+        self.minY = 0
+        self.root = root
+
+    def update(self, x: float = 0.5, y: float = 0.5):
+        plt.clf()
+        self.maxX = 0
+        self.minY = 0
+        self.__updater(self.root, x, y)
+        plt.xlim(x - self.xStep, self.maxX + self.xStep)
+        plt.ylim(self.minY + self.yStep, y - self.yStep)
+        # plt.rcParams["figure.autolayout"] = True
+        plt.show()
+        
+
+    def __updater(self, parent: Node, x: float, y:float):
+        minX = x
+        for node in parent.children:
+            x = self.__updater(node, x + self.xStep, y + self.yStep)
+            if x > self.maxX:
+                self.maxX = x
+            if y < self.minY:
+                self.minY = y
+        self.__draw(parent, (x + minX)/2, y)
+        return x
+        
+
+    def __draw(self, node: Node, x: float, y: float):
+        plt.text(x,y, f"{str(node.board)}\nVisits: {node.visitCount}\nWins: {node.wins}\nPolicy: {node.prob}\n Value: {node.valueSum}", ha='center', va='center', bbox=dict(facecolor='lightblue', edgecolor='black'))
+
+
+        
 class MCTS:
     def __init__(self, model, game: ChessGame, args):
         self.game = game
         self.args = args
         self.model = model
+        self.drawer = None
 
     @torch.no_grad()
     def search(self, state, board):
         root = Node(self.game, self.args, state, board, prob = 1)
+        self.drawer = Drawer(root)
         with Bar('Processing...', max=self.args['num_searches']) as bar:
             
             for _ in range(self.args['num_searches']):
+                # self.drawer.update()
                 node = root
                 while node.isFullyExpanded():
                     node = node.select()
@@ -129,6 +171,7 @@ class MCTS:
                 node.backpropogate(value, 0)
                 bar.next()
         
+        self.drawer.update()
         actionProbs = np.zeros(self.game.actionSize)
         if len(root.children) == 0:
             raise Exception("GameEnd???")

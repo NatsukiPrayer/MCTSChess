@@ -20,14 +20,11 @@ class BetaZero:
         state, board = self.game.getInitialState()
 
         state = state * -1
+        isTerminal = False
         while True:
             print(board)
-            isTerminal = False
             neutralState = state * -1
-            try:
-                actionProbs = self.mcts.search(neutralState, board)
-            except:
-                isTerminal = True
+            actionProbs = self.mcts.search(neutralState, board)
             if not isTerminal:
                 memory.append((neutralState, actionProbs))
                 action = np.random.choice(self.game.actionSize, p=actionProbs)
@@ -51,7 +48,7 @@ class BetaZero:
             state, policyTargets, valueTargets = np.array(state), np.array(policyTargets), np.array(valueTargets).reshape(-1, 1)
             state = torch.tensor(state, dtype = torch.float32)
             policyTargets = torch.tensor(policyTargets, dtype = torch.float32)
-            valueTargets = torch.tensor(policyTargets, dtype = torch.float32)
+            valueTargets = torch.tensor(valueTargets, dtype = torch.float32)
             outPolicy, outValue = self.model(state)
             policyLoss = F.cross_entropy(outPolicy, policyTargets)
             valueLoss = F.mse_loss(outValue, valueTargets)
