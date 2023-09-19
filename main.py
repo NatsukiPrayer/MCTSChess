@@ -8,7 +8,7 @@ from BetaZero import BetaZero
 from NN import ResNet
 np.set_printoptions(threshold=sys.maxsize)
 
-args = {'C':2, 'num_searches':250, 'numIterations':1, 'numSelfPlayIterations':50, 'numEpochs':32, 'batchSize':128}
+args = {'C':2, 'num_searches':250, 'numIterations':1, 'numSelfPlayIterations':5, 'numEpochs':4, 'batchSize':128}
 
 
 chessGame = ChessGame()

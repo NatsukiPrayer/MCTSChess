@@ -4,6 +4,7 @@ import numpy as np
 from MCTS import MCTS
 import torch
 from ChessGame import ChessGame
+from tqdm import tqdm
 import torch.nn.functional as F
 
 class BetaZero:
@@ -21,13 +22,14 @@ class BetaZero:
 
         state = state * -1
         isTerminal = False
+        idx = 0
         while True:
-            print(board)
+            # print(board)
             neutralState = state * -1
-            actionProbs = self.mcts.search(neutralState, board)
+            actionProbs = self.mcts.search(neutralState, board, idx)
             if not isTerminal:
                 memory.append((neutralState, actionProbs))
-                action = np.random.choice(self.game.actionSize, p=actionProbs)
+                action = np.argmax(actionProbs)
                 state, board = self.game.getNextState(state, action, board)
                 value, isTerminal = self.game.getValAndTerminate(board)
             if isTerminal:
@@ -38,6 +40,7 @@ class BetaZero:
                     returnMemory.append((self.game.getEncodedState(histNeutralState), histActionProbs, histOutcome))
                 return returnMemory
             player = not player
+            idx += 1
 
 
     def train(self, memory):
@@ -59,15 +62,18 @@ class BetaZero:
 
 
     def learn(self):
-        for iteration in range(self.args['numIterations']):
+        for iteration in (numIterations := tqdm(range(self.args['numIterations']), leave=False)):
+            numIterations.set_description("Iterations")
             memory = []
 
             self.model.eval()
-            for selfPlayIteration in range(self.args['numSelfPlayIterations']):
+            for selfPlayIteration in (numSelfPlayIterations := tqdm(range(self.args['numSelfPlayIterations']), leave=False)):
+                numSelfPlayIterations.set_description("Self plays")
                 memory += self.selfPlay()
 
             self.model.train()
-            for _ in range(self.args['numEpochs']):
+            for _ in (numEpochs:= tqdm(range(self.args['numEpochs']), leave=False)):
+                numEpochs.set_description("Epochs")
                 self.train(memory)
             torch.save(self.model.state_dict(), f"model_{iteration}.pt")
             torch.save(self.optimizer.state_dict(), f"optimizer_{iteration}.pt")
