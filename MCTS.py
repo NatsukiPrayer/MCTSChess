@@ -8,7 +8,7 @@ from PrettyPrint import PrettyPrintTree
 from tqdm import tqdm
 
 letters = ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h']
-
+device = 'cuda'
 def encode(inp: str):
     action = str(inp)
     rowFrom = (int(action[1]) - 1) 
@@ -86,9 +86,10 @@ class Node:
 class Drawer:
     def __init__(self, root: Node):
         self.xStep = 5
-        self.yStep = -5
+        self.yStep = 5
         self.maxX = 0
         self.minY = 0
+        self.texts = []
         self.root = root
 
     def update(self, x: float = 0.5, y: float = 0.5):
@@ -104,7 +105,7 @@ class MCTS:
         self.args = args
         self.model = model
         self.drawer = None
-
+    
     @torch.no_grad()
     def search(self, state, board, idx):
         root = Node(self.game, self.args, state, board, prior = 1)
@@ -121,15 +122,17 @@ class MCTS:
             value, isTerminal = self.game.getValAndTerminate(node.board)
             value = value * -1 
 
-            if not isTerminal:
-                policy, value = self.model(torch.tensor(self.game.getEncodedState(node.state)).unsqueeze(0))
-                policy = torch.softmax(policy, axis=1).squeeze(0).cpu().numpy()
-                validMoves = self.game.getValidMoves(node.board)
-                zeros = np.zeros(4096)
-                for move in validMoves:
-                    zeros[encode(str(move))] = 1
-                policy *= zeros
-                policy /= np.sum(policy)
+                if not isTerminal:
+                    policy, value = self.model(torch.tensor(self.game.getEncodedState(node.state)).unsqueeze(0))
+                    policy = torch.softmax(policy, axis=1).squeeze(0).cpu().numpy()
+                    validMoves = self.game.getValidMoves(node.board)
+                    zeros = np.zeros(4096)
+                    for move in validMoves:
+                        zeros[encode(str(move))] = 1
+                    if node.board.turn == chess.BLACK:
+                        zeros = np.transpose(zeros)
+                    policy *= zeros
+                    policy /= np.sum(policy)
 
                 value = value.item()
 

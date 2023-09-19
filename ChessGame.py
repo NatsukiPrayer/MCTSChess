@@ -71,7 +71,7 @@ class ChessGame:
     
     def getEncodedState(self, state):
         encodedState = np.stack((state == -6,state == -5,state == -4,state == -3,state == -2,state == -1,state == 0,state == 6,state == 5,state == 4,state == 3,state == 2,state == 1)).astype(np.float32)
-        return encodedState
+        return encodedState 
 
 
 

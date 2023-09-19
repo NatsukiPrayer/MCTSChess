@@ -4,8 +4,11 @@ import numpy as np
 from MCTS import MCTS
 import torch
 from ChessGame import ChessGame
+from torch.utils.tensorboard import SummaryWriter
 from tqdm import tqdm
 import torch.nn.functional as F
+import time as t
+device = 'cuda'
 
 class BetaZero:
     def __init__(self, model, optimizer, game: ChessGame, args):
@@ -18,6 +21,7 @@ class BetaZero:
     def selfPlay(self):
         memory = []
         player = True
+        print('DOSKA IS REFRESHED')
         state, board = self.game.getInitialState()
 
         state = state * -1
@@ -43,22 +47,26 @@ class BetaZero:
             idx += 1
 
 
-    def train(self, memory):
+    def train(self, memory, train=True):
         random.shuffle(memory)
+        train_loss = 0
         for batchIdx in range(0, len(memory), self.args['batchSize']):
             sample = memory[batchIdx:min(len(memory)-1, batchIdx+self.args['batchSize'])]
             state, policyTargets, valueTargets = zip(*sample)
             state, policyTargets, valueTargets = np.array(state), np.array(policyTargets), np.array(valueTargets).reshape(-1, 1)
-            state = torch.tensor(state, dtype = torch.float32)
-            policyTargets = torch.tensor(policyTargets, dtype = torch.float32)
-            valueTargets = torch.tensor(valueTargets, dtype = torch.float32)
+            state = torch.tensor(state, dtype = torch.float32).to(f'{device}')
+            policyTargets = torch.tensor(policyTargets, dtype = torch.float32).to(f'{device}')
+            valueTargets = torch.tensor(valueTargets, dtype = torch.float32).to(f'{device}')
             outPolicy, outValue = self.model(state)
             policyLoss = F.cross_entropy(outPolicy, policyTargets)
             valueLoss = F.mse_loss(outValue, valueTargets)
             loss = policyLoss + valueLoss
-            self.optimizer.zero_grad()
-            loss.backward()
-            self.optimizer.step()
+            train_loss += loss.item()
+            if train:
+                self.optimizer.zero_grad()
+                loss.backward()
+                self.optimizer.step()
+        return train_loss / (len(memory)/self.args['batchSize'])
 
 
     def learn(self):
@@ -77,3 +85,20 @@ class BetaZero:
                 self.train(memory)
             torch.save(self.model.state_dict(), f"model_{iteration}.pt")
             torch.save(self.optimizer.state_dict(), f"optimizer_{iteration}.pt")
+    
+    @torch.no_grad
+    def ev(self):
+        self.model.eval()
+
+    def learn2(self, train, test):
+        writer = SummaryWriter(f'logdir/{t.time()}')
+        for epoch in range(self.args['numEpochs']):
+            self.model.train()
+            loss = self.train(train)
+            self.ev()
+            lossTest = self.train(train, train=False)
+            writer.add_scalar('Loss/train', loss, epoch)
+            writer.add_scalar('Loss/test', lossTest, epoch)
+            torch.save(self.model.state_dict(), f"model_{epoch}.pt")
+            torch.save(self.optimizer.state_dict(), f"optimizer_{epoch}.pt")
+        writer.close()
