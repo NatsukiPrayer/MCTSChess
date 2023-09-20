@@ -1,3 +1,5 @@
+from MCTSParallel import MCTSParallel
+from SPG import SPG
 
 import random
 import numpy as np
@@ -10,43 +12,55 @@ import torch.nn.functional as F
 import time as t
 device = 'cuda'
 
-class BetaZero:
+class BetaZeroParallel:
     def __init__(self, model, optimizer, game: ChessGame, args):
         self.model = model
         self.optimizer = optimizer
         self.game = game
         self.args = args
-        self.mcts = MCTS(model, game, args)
+        self.mcts = MCTSParallel(model, game, args)
 
     def selfPlay(self):
-        memory = []
+        returnMemory = []
         player = True
-        state, board = self.game.getInitialState()
+        spGames = [SPG(self.game) for _ in range(self.args['numParallelGames'])]
 
-        state = state * -1
-        isTerminal = False
-        idx = 0
+
         tqdm.write('New game started\n')
-        while True:
-            tqdm.write(f'{str(board)}\n')
-            tqdm.write(f'{state}\n')
-            # print(board)
-            neutralState = state * -1
-            actionProbs = self.mcts.search(neutralState, board, idx)
-            if not isTerminal:
-                memory.append((neutralState, actionProbs))
+        idx = 0
+        while len(spGames) > 0:
+            states = np.stack([spg.state for spg in spGames])
+            boards = [spg.board for spg in spGames]
+            neutralStates = states * -1
+            self.mcts.search(neutralStates, boards, idx, spGames)
+
+            for i in (numGames := tqdm(range(len(spGames))[::-1], leave=False)):
+                numGames.set_description('Game {idx}')
+                spg = spGames[i]
+
+                actionProbs = np.zeros(self.game.actionSize)
+                if len(spg.root.children) == 0:
+                    raise Exception("GameEnd???")
+                for child in spg.root.children:
+                    actionProbs[child.actionTaken] = child.visitCount
+                a = np.sum(actionProbs)
+                actionProbs /= a
+                spg.memory.append((spg.root.state, actionProbs))
                 action = np.random.choice(self.game.actionSize, p=actionProbs)
-                state, board = self.game.getNextState(state, action, board)
-                value, isTerminal = self.game.getValAndTerminate(board)
-            if isTerminal:
-                returnMemory = []
-                for idx, tup in enumerate(memory):
-                    histNeutralState, histActionProbs = tup
-                    histOutcome = value if idx % 2 == 0 else -value
-                    returnMemory.append((self.game.getEncodedState(histNeutralState), histActionProbs, histOutcome))
-                return returnMemory
+                spgState, board = self.game.getNextState(spg.state, action, spg.board)
+                value, isTerminal = self.game.getValAndTerminate(spg.board)
+                tqdm.write(f'{str(board)}\n')
+                
+                if isTerminal:
+                    returnMemory = []
+                    for idx, tup in enumerate(spg.memory):
+                        histNeutralState, histActionProbs = tup
+                        histOutcome = value if idx % 2 == 0 else -value
+                        returnMemory.append((self.game.getEncodedState(histNeutralState), histActionProbs, histOutcome))
+                    del spGames[i]
             player = not player
             idx += 1
+        return returnMemory
 
 
     def train(self, memory, train=True):

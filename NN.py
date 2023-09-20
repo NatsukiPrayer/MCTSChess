@@ -1,6 +1,6 @@
 import torch.nn as nn
 import torch.nn.functional as F
-device = 'cpu'
+device = 'cuda'
 
 class ResNet(nn.Module):
     def __init__(self, game, numResBlocks, numHidden):
@@ -10,7 +10,7 @@ class ResNet(nn.Module):
         self.backBone = nn.ModuleList([ResBlock(numHidden) for i in range(numResBlocks)]).to(f'{device}')
         self.policyHead = nn.Sequential(nn.Conv2d(numHidden, 32, kernel_size=3, padding=1), nn.BatchNorm2d(32), nn.ReLU(), nn.Flatten(), nn.Linear(32*game.rowCount*game.colCount, game.actionSize)).to(f'{device}')
         self.valueHead = nn.Sequential(nn.Conv2d(numHidden, 13, kernel_size=3, padding=1), nn.BatchNorm2d(13), nn.ReLU(), nn.Flatten(), nn.Linear(13*game.rowCount*game.colCount, 1), nn.Tanh()).to(f'{device}')
-        self.to('cpu')
+        self.to('cuda')
     
     def forward(self, x):
         x = x.to(f'{device}')

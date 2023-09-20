@@ -1,4 +1,5 @@
 import sys
+from BetaZeroParallel import BetaZeroParallel
 from ChessGame import ChessGame
 
 from MCTS import MCTS
@@ -18,7 +19,7 @@ with open("config.json", "r") as f:
 
 chessGame = ChessGame()
 model = ResNet(chessGame, 16, 64)
-model.load_state_dict(torch.load('model_1.pt'))
+model.load_state_dict(torch.load('model_834.pt'))
 # model.eval()
 
 
@@ -26,8 +27,8 @@ model.load_state_dict(torch.load('model_1.pt'))
 player = True
 
 optimizer = torch.optim.Adam(model.parameters(), lr=0.001)
-optimizer.load_state_dict(torch.load('optimizer_1.pt'))
-betaZero = BetaZero(model, optimizer, chessGame, args)
+optimizer.load_state_dict(torch.load('optimizer_834.pt'))
+betaZero = BetaZeroParallel(model, optimizer, chessGame, args)
 betaZero.learn()
 
 mcts = MCTS( model, chessGame, args)

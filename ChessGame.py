@@ -7,6 +7,7 @@ class ChessGame:
         self.colCount = 8
         self.actionSize = (self.rowCount * self.colCount)**2
         self.board = chess.Board()
+        
         self.letters = ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h']
 
     def getInitialState(self):
@@ -71,6 +72,8 @@ class ChessGame:
     
     def getEncodedState(self, state):
         encodedState = np.stack((state == -6,state == -5,state == -4,state == -3,state == -2,state == -1,state == 0,state == 6,state == 5,state == 4,state == 3,state == 2,state == 1)).astype(np.float32)
+        if len(state.shape) == 3:
+            encodedState = np.swapaxes(encodedState, 0, 1)
         return encodedState 
 
 
