@@ -8,10 +8,12 @@ import torch
 from BetaZero import BetaZero
 from NN import ResNet
 
+import json
 
 np.set_printoptions(threshold=sys.maxsize)
 
-args = {'C':2, 'num_searches':250, 'numIterations':1000, 'numSelfPlayIterations':5, 'numEpochs':4, 'batchSize':128}
+with open("config.json", "r") as f:
+    args = json.load(f)
 
 
 chessGame = ChessGame()
