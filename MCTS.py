@@ -118,7 +118,7 @@ class Node:
                 childState, childBoard  = self.game.getNextState(childState, action, childBoard)
                 childState = self.game.changePerspective(childState)
                 child = Node(self.game, self.args, childState, childBoard, self, action, prob)
-                # self.children.insert(0, child)
+                self.children.append(child)
                 # child.updateUCB(child.getUCB_Self(), 0, search)
 
         return self
