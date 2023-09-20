@@ -26,9 +26,12 @@ class BetaZeroParallel:
         spGames = [SPG(self.game) for _ in range(self.args['numParallelGames'])]
 
 
-        tqdm.write('New game started\n')
         idx = 0
+        tqdm.write('New game started\n')
         while len(spGames) > 0:
+            firstBoards = [str(game.board).split("\n") for game in spGames[:10]]
+            boardStates = '\n'.join(''.join([f"{el:20}" for el in row]) for row in zip(*firstBoards))
+            tqdm.write(f"{boardStates}\n")
             states = np.stack([spg.state for spg in spGames])
             boards = [spg.board for spg in spGames]
             neutralStates = states * -1
@@ -49,7 +52,7 @@ class BetaZeroParallel:
                 action = np.random.choice(self.game.actionSize, p=actionProbs)
                 spgState, board = self.game.getNextState(spg.state, action, spg.board)
                 value, isTerminal = self.game.getValAndTerminate(spg.board)
-                tqdm.write(f'{str(board)}\n')
+                
                 
                 if isTerminal:
                     returnMemory = []
@@ -70,9 +73,9 @@ class BetaZeroParallel:
             sample = memory[batchIdx:min(len(memory), batchIdx+self.args['batchSize'])]
             state, policyTargets, valueTargets = zip(*sample)
             state, policyTargets, valueTargets = np.array(state), np.array(policyTargets), np.array(valueTargets).reshape(-1, 1)
-            state = torch.tensor(state, dtype = torch.float32).to(f'{device}')
-            policyTargets = torch.tensor(policyTargets, dtype = torch.float32).to(f'{device}')
-            valueTargets = torch.tensor(valueTargets, dtype = torch.float32).to(f'{device}')
+            state = torch.tensor(state, dtype = torch.float32).to(f'{self.args["device"]}')
+            policyTargets = torch.tensor(policyTargets, dtype = torch.float32).to(f'{self.args["device"]}')
+            valueTargets = torch.tensor(valueTargets, dtype = torch.float32).to(f'{self.args["device"]}')
             outPolicy, outValue = self.model(state)
             policyLoss = F.cross_entropy(outPolicy, policyTargets)
             valueLoss = F.mse_loss(outValue, valueTargets)
@@ -102,7 +105,7 @@ class BetaZeroParallel:
             torch.save(self.model.state_dict(), f"model_{iteration}.pt")
             torch.save(self.optimizer.state_dict(), f"optimizer_{iteration}.pt")
     
-    @torch.no_grad
+    @torch.no_grad()
     def ev(self):
         self.model.eval()
 

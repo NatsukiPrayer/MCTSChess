@@ -29,8 +29,6 @@ class BetaZero:
         tqdm.write('New game started\n')
         while True:
             tqdm.write(f'{str(board)}\n')
-            tqdm.write(f'{state}\n')
-            # print(board)
             neutralState = state * -1
             actionProbs = self.mcts.search(neutralState, board, idx)
             if not isTerminal:
@@ -88,7 +86,7 @@ class BetaZero:
             torch.save(self.model.state_dict(), f"model_{iteration}.pt")
             torch.save(self.optimizer.state_dict(), f"optimizer_{iteration}.pt")
     
-    @torch.no_grad
+    @torch.no_grad()
     def ev(self):
         self.model.eval()
 

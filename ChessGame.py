@@ -26,7 +26,6 @@ class ChessGame:
                          mainBPieces]), self.board)
     
     def getNextState(self, state, action, board):
-        
         try:
             action = int(action)
             rowFrom = action % 8

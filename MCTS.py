@@ -188,7 +188,7 @@ class MCTS:
             value, isTerminal = self.game.getValAndTerminate(node.board)
             value = value * -1 
             if not isTerminal:
-                policy, value = self.model(torch.tensor(self.game.getEncodedState(node.state), device = 'cuda:0').unsqueeze(0))
+                policy, value = self.model(torch.tensor(self.game.getEncodedState(node.state), device = self.args["device"]).unsqueeze(0))
                 policy = torch.softmax(policy, axis=1).squeeze(0).cpu().numpy()
                 validMoves = self.game.getValidMoves(node.board)
                 zeros = np.zeros(4096)

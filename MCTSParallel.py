@@ -16,7 +16,7 @@ class MCTSParallel:
 
     @torch.no_grad()
     def search(self, states, boards, idx, spGames):
-        policy, _ = self.model(torch.tensor(self.game.getEncodedState(states), device='cuda'))
+        policy, _ = self.model(torch.tensor(self.game.getEncodedState(states), device=self.args["device"]))
         policy = torch.softmax(policy, axis=1).cpu().numpy()
         
         root = Node(self.game, self.args, states, boards, prior = 1)
@@ -59,7 +59,7 @@ class MCTSParallel:
            
             if len(expandableSpgames) > 0:
                 states = np.stack([spGames[mappingIndx].node.state for mappingIndx in expandableSpgames]) 
-                policy, value = self.model(torch.tensor(self.game.getEncodedState(states), device = 'cuda:0'))
+                policy, value = self.model(torch.tensor(self.game.getEncodedState(states), device = self.args["device"]))
                 policy = torch.softmax(policy, axis=1).cpu().numpy()
                 value = value.cpu().numpy()
                 boards = [spGames[mappingIndx].node.board for mappingIndx in expandableSpgames]

@@ -11,24 +11,27 @@ from NN import ResNet
 
 import json
 
-np.set_printoptions(threshold=sys.maxsize)
+np.set_printoptions(threshold=sys.maxsize) 
 
 with open("config.json", "r") as f:
     args = json.load(f)
 
 
 chessGame = ChessGame()
-model = ResNet(chessGame, 16, 64)
-model.load_state_dict(torch.load('model_834.pt'))
+model = ResNet(chessGame, 16, 64, args["device"])
+model.load_state_dict(torch.load(args["model"]))
 # model.eval()
-
-
 
 player = True
 
 optimizer = torch.optim.Adam(model.parameters(), lr=0.001)
-optimizer.load_state_dict(torch.load('optimizer_834.pt'))
-betaZero = BetaZeroParallel(model, optimizer, chessGame, args)
+optimizer.load_state_dict(torch.load(args["optimizer"]))
+
+if args["numParallelGames"] > 1:
+    betaZero = BetaZeroParallel(model, optimizer, chessGame, args)
+else:
+    betaZero = BetaZero(model, optimizer, chessGame, args)
+
 betaZero.learn()
 
 mcts = MCTS( model, chessGame, args)
