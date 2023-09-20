@@ -8,7 +8,7 @@ from torch.utils.tensorboard import SummaryWriter
 from tqdm import tqdm
 import torch.nn.functional as F
 import time as t
-device = 'cuda'
+device = 'cpu'
 
 class BetaZero:
     def __init__(self, model, optimizer, game: ChessGame, args):
@@ -21,7 +21,6 @@ class BetaZero:
     def selfPlay(self):
         memory = []
         player = True
-        print('DOSKA IS REFRESHED')
         state, board = self.game.getInitialState()
 
         state = state * -1
@@ -29,11 +28,12 @@ class BetaZero:
         idx = 0
         while True:
             # print(board)
+            tqdm.write(f"{str(board)}\n")
             neutralState = state * -1
             actionProbs = self.mcts.search(neutralState, board, idx)
             if not isTerminal:
                 memory.append((neutralState, actionProbs))
-                action = np.argmax(actionProbs)
+                action = np.random.choice(self.game.actionSize, p=actionProbs)
                 state, board = self.game.getNextState(state, action, board)
                 value, isTerminal = self.game.getValAndTerminate(board)
             if isTerminal:
@@ -51,7 +51,7 @@ class BetaZero:
         random.shuffle(memory)
         train_loss = 0
         for batchIdx in range(0, len(memory), self.args['batchSize']):
-            sample = memory[batchIdx:min(len(memory)-1, batchIdx+self.args['batchSize'])]
+            sample = memory[batchIdx:min(len(memory), batchIdx+self.args['batchSize'])]
             state, policyTargets, valueTargets = zip(*sample)
             state, policyTargets, valueTargets = np.array(state), np.array(policyTargets), np.array(valueTargets).reshape(-1, 1)
             state = torch.tensor(state, dtype = torch.float32).to(f'{device}')
@@ -86,7 +86,7 @@ class BetaZero:
             torch.save(self.model.state_dict(), f"model_{iteration}.pt")
             torch.save(self.optimizer.state_dict(), f"optimizer_{iteration}.pt")
     
-    @torch.no_grad
+    @torch.no_grad()
     def ev(self):
         self.model.eval()
 

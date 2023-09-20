@@ -11,12 +11,12 @@ from NN import ResNet
 
 np.set_printoptions(threshold=sys.maxsize)
 
-args = {'C':2, 'num_searches':750, 'numIterations':200, 'numSelfPlayIterations':50, 'numEpochs':3, 'batchSize':128}
+args = {'C':2, 'num_searches':250, 'numIterations':1000, 'numSelfPlayIterations':5, 'numEpochs':4, 'batchSize':128}
 
 
 chessGame = ChessGame()
 model = ResNet(chessGame, 16, 64)
-model.load_state_dict(torch.load('E:\BetaZero\model_937.pt'))
+model.load_state_dict(torch.load('model_1.pt'))
 # model.eval()
 
 
@@ -24,7 +24,7 @@ model.load_state_dict(torch.load('E:\BetaZero\model_937.pt'))
 player = True
 
 optimizer = torch.optim.Adam(model.parameters(), lr=0.001)
-optimizer.load_state_dict(torch.load('E:\BetaZero\optimizer_937.pt'))
+optimizer.load_state_dict(torch.load('optimizer_1.pt'))
 betaZero = BetaZero(model, optimizer, chessGame, args)
 betaZero.learn()
 
