@@ -1,19 +1,25 @@
 import sys
+from BetaZeroParallel import BetaZeroParallel
 from ChessGame import ChessGame
+
 from MCTS import MCTS
 import numpy as np
 from chess import Move
 import torch
 from BetaZero import BetaZero
 from NN import ResNet
+
+import json
+
 np.set_printoptions(threshold=sys.maxsize)
 
-args = {'C':2, 'num_searches':1000, 'numIterations':200, 'numSelfPlayIterations':5000, 'numEpochs':32, 'batchSize':128}
+with open("config.json", "r") as f:
+    args = json.load(f)
 
 
 chessGame = ChessGame()
-model = ResNet(chessGame, 32, 128)
-# model.load_state_dict(torch.load('E:\BetaZero\model_99.pt'))
+model = ResNet(chessGame, 16, 64)
+model.load_state_dict(torch.load('model_834.pt'))
 # model.eval()
 
 
@@ -21,8 +27,8 @@ model = ResNet(chessGame, 32, 128)
 player = True
 
 optimizer = torch.optim.Adam(model.parameters(), lr=0.001)
-
-betaZero = BetaZero(model, optimizer, chessGame, args)
+optimizer.load_state_dict(torch.load('optimizer_834.pt'))
+betaZero = BetaZeroParallel(model, optimizer, chessGame, args)
 betaZero.learn()
 
 mcts = MCTS( model, chessGame, args)
@@ -31,7 +37,7 @@ tensorState = torch.tensor(chessGame.getEncodedState(state)).unsqueeze(0)
 
 while True:
     print(board)
-    if player == True:
+    if player == False:
         validMoves = chessGame.getValidMoves(board)
         print("valid moves", validMoves)
         action = input()

@@ -1,2 +1,10 @@
 venv
 __pycache__
+.vscode
+.python-version
+*.python
+*.txt
+*.pt
+*.tiff
+config.json
+*.csv
