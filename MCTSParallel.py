@@ -39,7 +39,7 @@ class MCTSParallel:
            
             
         for _ in (num_searches := tqdm(range(self.args['num_searches']), leave=False)):
-            num_searches.set_description(f"Searches {idx}")
+            num_searches.set_description(f"Search {idx}")
             for spg in spGames:
                 spg.node = None
                 node = spg.root

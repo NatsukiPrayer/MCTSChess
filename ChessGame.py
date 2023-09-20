@@ -2,11 +2,12 @@ import chess
 import numpy as np
 
 class ChessGame:
-    def __init__(self):
+    def __init__(self, numParallel):
         self.rowCount = 8
         self.colCount = 8
         self.actionSize = (self.rowCount * self.colCount)**2
         self.board = chess.Board()
+        self.numParallel = numParallel
         
         self.letters = ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h']
 
@@ -15,7 +16,10 @@ class ChessGame:
         bPawns = [-1 for i in range(self.colCount)]
         mainWPieces = [2,3,4,5,6,4,3,2]
         mainBPieces = [-2,-3,-4,-5,-6,-4,-3,-2]
-        self.board.reset()
+        if self.numParallel > 1:
+            board = chess.Board()
+        else:
+            board = self.board.reset()
         return (np.array([mainWPieces,
                          wPawns,
                          [0 for i in range(self.colCount)],
@@ -23,7 +27,7 @@ class ChessGame:
                          [0 for i in range(self.colCount)],
                          [0 for i in range(self.colCount)],
                          bPawns,
-                         mainBPieces]), self.board)
+                         mainBPieces]), board)
     
     def getNextState(self, state, action, board):
         try:

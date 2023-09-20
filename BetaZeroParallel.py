@@ -38,7 +38,7 @@ class BetaZeroParallel:
             self.mcts.search(neutralStates, boards, idx, spGames)
 
             for i in (numGames := tqdm(range(len(spGames))[::-1], leave=False)):
-                numGames.set_description('Game {idx}')
+                numGames.set_description(f'Game {idx}')
                 spg = spGames[i]
 
                 actionProbs = np.zeros(self.game.actionSize)

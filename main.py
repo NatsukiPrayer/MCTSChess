@@ -17,7 +17,7 @@ with open("config.json", "r") as f:
     args = json.load(f)
 
 
-chessGame = ChessGame()
+chessGame = ChessGame(args["numParallelGames"])
 model = ResNet(chessGame, 16, 64, args["device"])
 model.load_state_dict(torch.load(args["model"]))
 # model.eval()
