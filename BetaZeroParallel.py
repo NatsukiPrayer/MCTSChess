@@ -29,13 +29,14 @@ class BetaZeroParallel:
         idx = 0
         tqdm.write('New game started\n')
         while len(spGames) > 0:
-            firstBoards = [str(game.board).split("\n") for game in spGames[:10]]
+            firstBoards = [str(game.board).split("\n") for game in spGames[:9]]
             boardStates = '\n'.join(''.join([f"{el:20}" for el in row]) for row in zip(*firstBoards))
             tqdm.write(f"{boardStates}\n")
             states = np.stack([spg.state for spg in spGames])
             boards = [spg.board for spg in spGames]
             neutralStates = states * -1
-            self.mcts.search(neutralStates, boards, idx, spGames)
+            if idx < 250:
+                self.mcts.search(neutralStates, boards, idx, spGames)
 
             for i in (numGames := tqdm(range(len(spGames))[::-1], leave=False)):
                 numGames.set_description(f'Game {idx}')
@@ -52,6 +53,9 @@ class BetaZeroParallel:
                 action = np.random.choice(self.game.actionSize, p=actionProbs)
                 spgState, board = self.game.getNextState(spg.state, action, spg.board)
                 value, isTerminal = self.game.getValAndTerminate(spg.board)
+                if idx >= 250:
+                    isTerminal = True
+                    value = 0
                 
                 
                 if isTerminal:

@@ -19,7 +19,8 @@ class ChessGame:
         if self.numParallel > 1:
             board = chess.Board()
         else:
-            board = self.board.reset()
+            self.board.reset()
+            board = self.board
         return (np.array([mainWPieces,
                          wPawns,
                          [0 for i in range(self.colCount)],
