@@ -22,7 +22,7 @@ model = ResNet(chessGame, 16, 64, args["device"])
 # model.load_state_dict(torch.load(args["model"]))
 # model.eval()
 
-player = True
+player = True 
 
 optimizer = torch.optim.Adam(model.parameters(), lr=0.001)
 # optimizer.load_state_dict(torch.load(args["optimizer"]))
@@ -52,7 +52,7 @@ while True:
         neutralState = chessGame.changePerspective(state)
         mctsProbs = mcts.search(neutralState, board)
         action = np.argmax(mctsProbs)
-    state, board = chessGame.getNextState(state, action, board)
+    state, board = chessGame.getNextState(state, action, board, player)
     value, isTerminal = chessGame.getValAndTerminate(board)
     if isTerminal:
         print(board)

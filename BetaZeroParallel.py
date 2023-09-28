@@ -1,3 +1,4 @@
+import chess
 from MCTSParallel import MCTSParallel
 from SPG import SPG
 
@@ -27,14 +28,17 @@ class BetaZeroParallel:
 
 
         idx = 0
+        for spg in spGames:
+            spg.state = self.game.changePerspective(spg.state)
         tqdm.write('New game started\n')
         while len(spGames) > 0:
             firstBoards = [str(game.board).split("\n") for game in spGames[:10]]
             boardStates = '\n'.join(''.join([f"{el:20}" for el in row]) for row in zip(*firstBoards))
             tqdm.write(f"{boardStates}\n")
             states = np.stack([spg.state for spg in spGames])
+            
             boards = [spg.board for spg in spGames]
-            neutralStates = states * -1
+            neutralStates = self.game.changePerspective(states)
             self.mcts.search(neutralStates, boards, idx, spGames)
 
             for i in (numGames := tqdm(range(len(spGames))[::-1], leave=False)):
@@ -50,7 +54,7 @@ class BetaZeroParallel:
                 actionProbs /= a
                 spg.memory.append((spg.root.state, actionProbs))
                 action = np.random.choice(self.game.actionSize, p=actionProbs)
-                spgState, board = self.game.getNextState(spg.state, action, spg.board)
+                spg.state, spg.board = self.game.getNextState(spg.state, action, spg.board, spg.board.turn == chess.WHITE)
                 value, isTerminal = self.game.getValAndTerminate(spg.board)
                 
                 

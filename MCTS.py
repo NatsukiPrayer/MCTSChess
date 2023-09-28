@@ -110,12 +110,12 @@ class Node:
         return qValue + self.args['C'] * ((1 / (self.visitCount + 1))) * self.prior
 
 
-    def  expand(self, policy, search):
+    def expand(self, policy, search, color):
         for action, prob in enumerate(policy):
             if prob > 0:
                 childState = self.state.copy()
                 childBoard = self.board.copy()
-                childState, childBoard  = self.game.getNextState(childState, action, childBoard)
+                childState, childBoard  = self.game.getNextState(childState, action, childBoard, color)
                 childState = self.game.changePerspective(childState)
                 child = Node(self.game, self.args, childState, childBoard, self, action, prob)
                 self.children.append(child)
@@ -195,13 +195,13 @@ class MCTS:
                 for move in validMoves:
                     zeros[encode(str(move))] = 1
                 if node.board.turn == chess.BLACK:
-                    zeros = np.transpose(zeros)
+                    zeros = np.flip(zeros)
                 policy *= zeros
                 policy /= np.sum(policy)
 
                 value = value.item()
 
-                node = node.expand(policy, iter)
+                node = node.expand(policy, iter, node.board.turn == chess.WHITE)
 
             node.backpropogate(value, iter)
 

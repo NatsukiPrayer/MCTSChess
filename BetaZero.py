@@ -1,5 +1,6 @@
 
 import random
+import chess
 import numpy as np
 from MCTS import MCTS
 import torch
@@ -22,10 +23,9 @@ class BetaZero:
         memory = []
         player = True
         state, board = self.game.getInitialState()
-
-        state = self.game.changePerspective(state)
         isTerminal = False
         idx = 0
+        state = self.game.changePerspective(state)
         tqdm.write('New game started\n')
         while True:
             tqdm.write(f'{str(board)}\n')
@@ -34,7 +34,7 @@ class BetaZero:
             if not isTerminal:
                 memory.append((neutralState, actionProbs))
                 action = np.random.choice(self.game.actionSize, p=actionProbs)
-                state, board = self.game.getNextState(state, action, board)
+                state, board = self.game.getNextState(neutralState, action, board, board.turn == chess.WHITE)
                 value, isTerminal = self.game.getValAndTerminate(board)
                 if idx > 30:
                     value = 0

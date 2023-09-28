@@ -1,3 +1,4 @@
+import random
 import chess 
 import numpy as np
 
@@ -6,6 +7,19 @@ figures = ('', 'p', 'r', 'n', 'b', 'q', 'k')
 class ChessGame:
     def __init__(self, numParallel):
         self.rowCount = 8
+        self.fens = [
+            "r6r/p7/5R1p/7k/6R1/7P/2P3P1/2K5 w - - 0 1",
+            "r6r/p5R1/5R1p/8/7k/7P/2P3P1/2K5 w - - 0 1",
+            "r6r/p1p3R1/3n1R1p/8/7k/7P/2P3P1/2K5 w - - 0 1",
+            "5rk1/4Pp1p/4q1p1/2p5/6P1/3r3P/6B1/Q4RK1 w - - 0 1",
+            "5r1k/4Pp1p/4q1p1/2p5/6P1/3r3P/6B1/5RK1 w - - 0 1",
+            "8/8/8/8/8/4k3/8/6KQ w - - 0 1",
+            "q7/8/8/8/8/4k3/8/6K1 w - - 0 1",
+            "3k4/qp4b1/4K3/8/8/5b2/8/8 w - - 0 1",
+            "3k4/1p3Kb1/8/8/8/5b2/8/6q1 w - - 0 1",
+            "3k2K1/1p4b1/8/8/4b3/8/8/6q1 w - - 0 1",
+            "8/2n2B2/p4p2/1p3k1p/P4P2/1P2K1PP/8/8 w - - 0 1"
+            ]
         self.colCount = 8
         self.actionSize = (self.rowCount * self.colCount)**2
         self.board = chess.Board()
@@ -30,24 +44,24 @@ class ChessGame:
         return pos
 
     def getInitialState(self):
-        wPawns = [1 for i in range(self.colCount)]
-        bPawns = [-1 for i in range(self.colCount)]
-        mainWPieces = [2,3,4,5,6,4,3,2]
-        mainBPieces = [-2,-3,-4,-5,-6,-4,-3,-2]
+        
         if self.numParallel > 1:
             board = chess.Board()
             
         else:
             self.board.reset()
             board = self.board
-        self.board.set_fen('8/8/8/4k3/R7/8/4K3/4R3 b - - 0 1')
-        zeros = [0 for i in range(self.colCount)]
-        state = self.posFromFen(self.board.fen())
+        board.set_fen(self.fens[random.randint(0, len(self.fens)-1)])
+        # self.board = board
+        state = self.posFromFen(board.fen())
         return (state, board)
     
-    def getNextState(self, state, action, board):
+    def getNextState(self, state, action, board, color): #TODO: fix this
+        
         try:
             action = int(action)
+            if not color:
+                action = 4095 - action
             rowFrom = action % 8
             colFrom = action // 8 % 8
             rowWhere = (action // 64) % 8
@@ -58,19 +72,23 @@ class ChessGame:
             colFrom = self.letters.index(action[0])
             rowWhere = int(action[3]) - 1
             colWhere = self.letters.index(action[2])  
-    
-        fig = state[rowFrom, colFrom]
+
         uciMove = f'{self.letters[colFrom]}{rowFrom+1}{self.letters[colWhere]}{rowWhere+1}' 
+        rowFrom = 7 - rowFrom
+        rowWhere = 7 - rowWhere
+        fig = state[rowFrom, colFrom]
+        
+        state[rowFrom, colFrom] = 0
         try:
             board.push_uci(uciMove)
+            state[rowWhere, colWhere] = fig
         except chess.IllegalMoveError:
             try:
                 uciMove = uciMove + 'q'
                 board.push_uci(uciMove)
+                state[rowWhere, colWhere] = 5 * (-1 if fig < 0 else 1)
             except:
                 print('Chuyali???Vonyaet')
-        state[rowFrom, colFrom] = 0
-        state[rowWhere, colWhere] = fig
         return (state, board)
     
     def checkWin(self):
@@ -87,7 +105,9 @@ class ChessGame:
         return list(board.legal_moves)
 
     def changePerspective(self, state):
-        return np.rot90(np.rot90((state * -1)))
+        if len(state.shape) == 3: 
+            return np.rot90((state * -1), 2, axes=(1,2))
+        return np.rot90((state * -1), 2)
     
     def getEncodedState(self, state):
         encodedState = np.stack((state == -6,state == -5,state == -4,state == -3,state == -2,state == -1,state == 0,state == 6,state == 5,state == 4,state == 3,state == 2,state == 1)).astype(np.float32)
