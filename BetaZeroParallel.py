@@ -89,6 +89,7 @@ class BetaZeroParallel:
 
 
     def learn(self):
+        writer = SummaryWriter(f'logdir/{t.time()}')
         for iteration in (numIterations := tqdm(range(self.args['numIterations']), leave=False)):
             numIterations.set_description("Iterations")
             memory = []
@@ -99,9 +100,13 @@ class BetaZeroParallel:
                 memory += self.selfPlay()
 
             self.model.train()
-            for _ in (numEpochs:= tqdm(range(self.args['numEpochs']), leave=False)):
+            for i in (numEpochs:= tqdm(range(self.args['numEpochs']), leave=False)):
                 numEpochs.set_description("Epochs")
-                self.train(memory)
+                loss = self.train(memory)
+                self.ev()
+                lossTest = self.train(memory, train=False)
+                writer.add_scalar('Loss/train', loss, i)
+                writer.add_scalar('Loss/test', lossTest, i)
             torch.save(self.model.state_dict(), f"model_{iteration}.pt")
             torch.save(self.optimizer.state_dict(), f"optimizer_{iteration}.pt")
     

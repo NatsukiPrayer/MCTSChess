@@ -18,16 +18,29 @@ class ChessGame:
         mainBPieces = [-2,-3,-4,-5,-6,-4,-3,-2]
         if self.numParallel > 1:
             board = chess.Board()
+            
         else:
-            board = self.board.reset()
-        return (np.array([mainWPieces,
+            self.board.reset()
+            board = self.board
+        self.board.set_fen('8/8/8/4k3/R7/8/4K3/4R3 b - - 0 1')
+        zeros = [0 for i in range(self.colCount)]
+        state = np.array([mainWPieces,
                          wPawns,
-                         [0 for i in range(self.colCount)],
-                         [0 for i in range(self.colCount)],
-                         [0 for i in range(self.colCount)],
-                         [0 for i in range(self.colCount)],
+                         zeros,
+                         zeros,
+                         zeros,
+                         zeros,
                          bPawns,
-                         mainBPieces]), board)
+                         mainBPieces])
+        state = np.array([zeros, 
+                          zeros, 
+                          zeros,
+                          [0, 0, 0, 0, -6, 0, 0, 0],
+                          [2,0,0,0,0,0,0,0],
+                          zeros,
+                          [0,0,0,0,6,0,0,0],
+                          [0,0,0,0,2,0,0,0]])
+        return (state, board)
     
     def getNextState(self, state, action, board):
         try:

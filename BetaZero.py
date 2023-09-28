@@ -23,19 +23,23 @@ class BetaZero:
         player = True
         state, board = self.game.getInitialState()
 
-        state = state * -1
+        state = self.game.changePerspective(state)
         isTerminal = False
         idx = 0
         tqdm.write('New game started\n')
         while True:
             tqdm.write(f'{str(board)}\n')
-            neutralState = state * -1
+            neutralState = self.game.changePerspective(state)
             actionProbs = self.mcts.search(neutralState, board, idx)
             if not isTerminal:
                 memory.append((neutralState, actionProbs))
                 action = np.random.choice(self.game.actionSize, p=actionProbs)
                 state, board = self.game.getNextState(state, action, board)
                 value, isTerminal = self.game.getValAndTerminate(board)
+                if idx > 30:
+                    value = 0
+                    isTerminal = True
+                    
             if isTerminal:
                 returnMemory = []
                 for idx, tup in enumerate(memory):
@@ -70,6 +74,7 @@ class BetaZero:
 
 
     def learn(self):
+        writer = SummaryWriter(f'logdir/{t.time()}')
         for iteration in (numIterations := tqdm(range(self.args['numIterations']), leave=False)):
             numIterations.set_description("Iterations")
             memory = []
@@ -80,9 +85,14 @@ class BetaZero:
                 memory += self.selfPlay()
 
             self.model.train()
-            for _ in (numEpochs:= tqdm(range(self.args['numEpochs']), leave=False)):
+            
+            for epoch in (numEpochs:= tqdm(range(self.args['numEpochs']), leave=False)):
                 numEpochs.set_description("Epochs")
-                self.train(memory)
+                loss = self.train(memory)
+                self.ev()
+                lossTest = self.train(memory, train=False)
+                writer.add_scalar('Loss/train', loss, epoch)
+                writer.add_scalar('Loss/test', lossTest, epoch)
             torch.save(self.model.state_dict(), f"model_{iteration}.pt")
             torch.save(self.optimizer.state_dict(), f"optimizer_{iteration}.pt")
     
