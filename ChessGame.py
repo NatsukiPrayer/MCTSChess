@@ -1,6 +1,8 @@
 import chess 
 import numpy as np
 
+figures = ('', 'p', 'r', 'n', 'b', 'q', 'k')
+
 class ChessGame:
     def __init__(self, numParallel):
         self.rowCount = 8
@@ -10,6 +12,22 @@ class ChessGame:
         self.numParallel = numParallel
         
         self.letters = ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h']
+
+    def posFromFen(self, fen: str):
+        fen = fen.split(' ', maxsplit=1)[0].split('/')
+        pos = np.zeros((8,8))
+        for idx, row in enumerate(fen):
+            j = 0
+            i = 0
+            while i < len(row):
+                if row[i].isdigit():
+                    j += int(row[i])
+                else:
+                    pos[idx][j] = figures.index(row[i].lower()) * (-1 if row[i].islower() else 1)
+                    j += 1
+                i += 1
+
+        return pos
 
     def getInitialState(self):
         wPawns = [1 for i in range(self.colCount)]
@@ -24,22 +42,7 @@ class ChessGame:
             board = self.board
         self.board.set_fen('8/8/8/4k3/R7/8/4K3/4R3 b - - 0 1')
         zeros = [0 for i in range(self.colCount)]
-        state = np.array([mainWPieces,
-                         wPawns,
-                         zeros,
-                         zeros,
-                         zeros,
-                         zeros,
-                         bPawns,
-                         mainBPieces])
-        state = np.array([zeros, 
-                          zeros, 
-                          zeros,
-                          [0, 0, 0, 0, -6, 0, 0, 0],
-                          [2,0,0,0,0,0,0,0],
-                          zeros,
-                          [0,0,0,0,6,0,0,0],
-                          [0,0,0,0,2,0,0,0]])
+        state = self.posFromFen(self.board.fen())
         return (state, board)
     
     def getNextState(self, state, action, board):
