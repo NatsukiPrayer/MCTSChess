@@ -19,13 +19,15 @@ with open("config.json", "r") as f:
 
 chessGame = ChessGame(args["numParallelGames"])
 model = ResNet(chessGame, 16, 64, args["device"])
-# model.load_state_dict(torch.load(args["model"]))
+if "model" in args and args["model"] != "":
+    model.load_state_dict(torch.load(args["model"]))
 # model.eval()
 
 player = True 
 
 optimizer = torch.optim.Adam(model.parameters(), lr=0.001)
-# optimizer.load_state_dict(torch.load(args["optimizer"]))
+if "optimizer" in args and args["optimizer"] != "":
+    optimizer.load_state_dict(torch.load(args["optimizer"]))
 
 if args["numParallelGames"] > 1:
     betaZero = BetaZeroParallel(model, optimizer, chessGame, args)

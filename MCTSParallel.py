@@ -29,7 +29,7 @@ class MCTSParallel:
             for move in validMoves:
                 zeros[encode(str(move))] = 1
             if boards[i].turn == chess.BLACK:
-                zeros = np.transpose(zeros)
+                zeros = np.flip(zeros)
             spgPolicy *= zeros
             spgPolicy /= np.sum(spgPolicy)
 

@@ -56,10 +56,20 @@ class ChessGame:
         state = self.posFromFen(board.fen())
         return (state, board)
     
+    def decode(self, action, color):
+        if not color:
+            action = 4095 - action
+        rowFrom = action % 8
+        colFrom = action // 8 % 8
+        rowWhere = (action // 64) % 8
+        colWhere = (action // 512) % 8 
+        return rowFrom, colFrom, rowWhere, colWhere
+
     def getNextState(self, state, action, board, color): #TODO: fix this
         
         try:
-            action = int(action)
+            rowFrom, colFrom, rowWhere, colWhere = self.decode(int(action), color)
+            uciRowFrom, uciColFrom, uciRowWhere, uciColWhere = self.decode(int(action), color)
             if not color:
                 action = 4095 - action
             rowFrom = action % 8
@@ -73,10 +83,16 @@ class ChessGame:
             rowWhere = int(action[3]) - 1
             colWhere = self.letters.index(action[2])  
 
-        uciMove = f'{self.letters[colFrom]}{rowFrom+1}{self.letters[colWhere]}{rowWhere+1}' 
-        rowFrom = 7 - rowFrom
-        rowWhere = 7 - rowWhere
+        uciMove = f'{self.letters[uciColFrom]}{uciRowFrom+1}{self.letters[uciColWhere]}{uciRowWhere+1}' 
+        if color:
+            rowFrom = 7 - rowFrom
+            rowWhere = 7 - rowWhere
+        else:
+            colFrom = 7 - colFrom
+            colWhere = 7 - colWhere
+            
         fig = state[rowFrom, colFrom]
+        assert fig > 0, "Figure not choosen"
         
         state[rowFrom, colFrom] = 0
         try:
@@ -86,7 +102,7 @@ class ChessGame:
             try:
                 uciMove = uciMove + 'q'
                 board.push_uci(uciMove)
-                state[rowWhere, colWhere] = 5 * (-1 if fig < 0 else 1)
+                state[rowWhere, colWhere] = 5
             except:
                 print('Chuyali???Vonyaet')
         return (state, board)

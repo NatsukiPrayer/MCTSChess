@@ -28,8 +28,8 @@ class BetaZeroParallel:
 
 
         idx = 0
-        for spg in spGames:
-            spg.state = self.game.changePerspective(spg.state)
+        # for spg in spGames:
+        #     spg.state = self.game.changePerspective(spg.state)
         tqdm.write('New game started\n')
         while len(spGames) > 0:
             firstBoards = [str(game.board).split("\n") for game in spGames[:10]]
@@ -38,12 +38,20 @@ class BetaZeroParallel:
             states = np.stack([spg.state for spg in spGames])
             
             boards = [spg.board for spg in spGames]
-            neutralStates = self.game.changePerspective(states)
-            self.mcts.search(neutralStates, boards, idx, spGames)
+            self.mcts.search(states, boards, idx, spGames)
 
             for i in (numGames := tqdm(range(len(spGames))[::-1], leave=False)):
                 numGames.set_description(f'Game {idx}')
                 spg = spGames[i]
+                
+                if spg.board.turn == chess.WHITE:
+                    stateCheck = spg.state
+                else:
+                    stateCheck = self.game.changePerspective(spg.state)
+
+                boardState = self.game.posFromFen(spg.board.fen())
+
+                assert all([all([el1 == el2 for el1, el2 in zip(row1, row2)]) for row1, row2 in zip(boardState, stateCheck)]), "Board and state different"
 
                 actionProbs = np.zeros(self.game.actionSize)
                 if len(spg.root.children) == 0:
@@ -55,8 +63,8 @@ class BetaZeroParallel:
                 spg.memory.append((spg.root.state, actionProbs))
                 action = np.random.choice(self.game.actionSize, p=actionProbs)
                 spg.state, spg.board = self.game.getNextState(spg.state, action, spg.board, spg.board.turn == chess.WHITE)
+                spg.state = self.game.changePerspective(spg.state)
                 value, isTerminal = self.game.getValAndTerminate(spg.board)
-                
                 
                 if isTerminal:
                     returnMemory = []
