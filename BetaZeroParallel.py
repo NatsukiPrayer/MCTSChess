@@ -63,9 +63,11 @@ class BetaZeroParallel:
                 spg.memory.append((spg.root.state, actionProbs))
                 action = np.random.choice(self.game.actionSize, p=actionProbs)
                 spg.state, spg.board = self.game.getNextState(spg.state, action, spg.board, spg.board.turn == chess.WHITE)
-                spg.state = self.game.changePerspective(spg.state)
                 value, isTerminal = self.game.getValAndTerminate(spg.board)
-                
+                if idx == 30:
+                    value  = 0
+                    isTerminal = True
+
                 if isTerminal:
                     returnMemory = []
                     for idx, tup in enumerate(spg.memory):
@@ -73,6 +75,7 @@ class BetaZeroParallel:
                         histOutcome = value if idx % 2 == 0 else -value
                         returnMemory.append((self.game.getEncodedState(histNeutralState), histActionProbs, histOutcome))
                     del spGames[i]
+                spg.state = self.game.changePerspective(spg.state)
             player = not player
             idx += 1
         return returnMemory
