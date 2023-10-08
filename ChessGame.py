@@ -69,13 +69,6 @@ class ChessGame:
         
         try:
             rowFrom, colFrom, rowWhere, colWhere = self.decode(int(action), color)
-            uciRowFrom, uciColFrom, uciRowWhere, uciColWhere = self.decode(int(action), color)
-            if not color:
-                action = 4095 - action
-            rowFrom = action % 8
-            colFrom = action // 8 % 8
-            rowWhere = (action // 64) % 8
-            colWhere = (action // 512) % 8 
         except:
             action = str(action)
             rowFrom = int(action[1]) - 1
@@ -83,28 +76,20 @@ class ChessGame:
             rowWhere = int(action[3]) - 1
             colWhere = self.letters.index(action[2])  
 
-        uciMove = f'{self.letters[uciColFrom]}{uciRowFrom+1}{self.letters[uciColWhere]}{uciRowWhere+1}' 
-        if color:
-            rowFrom = 7 - rowFrom
-            rowWhere = 7 - rowWhere
-        else:
-            colFrom = 7 - colFrom
-            colWhere = 7 - colWhere
-            
-        fig = state[rowFrom, colFrom]
-        assert fig > 0, "Figure not choosen"
+        uciMove = f'{self.letters[colFrom]}{rowFrom+1}{self.letters[colWhere]}{rowWhere+1}' 
         
-        state[rowFrom, colFrom] = 0
         try:
             board.push_uci(uciMove)
-            state[rowWhere, colWhere] = fig
         except chess.IllegalMoveError:
             try:
                 uciMove = uciMove + 'q'
                 board.push_uci(uciMove)
-                state[rowWhere, colWhere] = 5
             except:
                 print('Chuyali???Vonyaet')
+        
+        state = self.posFromFen(board.fen())
+        if not color:
+            state = self.changePerspective(state)
         return (state, board)
     
     def checkWin(self):
