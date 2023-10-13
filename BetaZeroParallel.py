@@ -78,6 +78,7 @@ class BetaZeroParallel:
                 spg.state = self.game.changePerspective(spg.state)
             player = not player
             idx += 1
+
         return returnMemory
 
 
