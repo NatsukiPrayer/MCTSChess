@@ -19,6 +19,10 @@ class ChessGame:
             "3k4/1p3Kb1/8/8/8/5b2/8/6q1 w - - 0 1",
             "3k2K1/1p4b1/8/8/4b3/8/8/6q1 w - - 0 1",
             "8/2n2B2/p4p2/1p3k1p/P4P2/1P2K1PP/8/8 w - - 0 1"
+            # "7k/5R2/6K1/8/8/8/8/8 w - - 0 1",
+            # "7k/4Q3/6K1/8/8/8/8/8 w - - 0 1",
+            # "8/8/8/8/8/7k/4q3/6K1 w - - 0 1",
+            # "8/8/8/8/2q5/8/K1k5/8 w - - 0 1"
             ]
         self.colCount = 8
         self.actionSize = (self.rowCount * self.colCount)**2
@@ -51,7 +55,7 @@ class ChessGame:
         else:
             self.board.reset()
             board = self.board
-        board.set_fen(self.fens[random.randint(0, len(self.fens)-1)])
+        # board.set_fen(self.fens[random.randint(0, len(self.fens)-1)])
         # self.board = board
         state = self.posFromFen(board.fen())
         return (state, board)
@@ -66,45 +70,39 @@ class ChessGame:
         return rowFrom, colFrom, rowWhere, colWhere
 
     def getNextState(self, state, action, board, color): #TODO: fix this
-        
         try:
-            rowFrom, colFrom, rowWhere, colWhere = self.decode(int(action), color)
             uciRowFrom, uciColFrom, uciRowWhere, uciColWhere = self.decode(int(action), color)
             if not color:
                 action = 4095 - action
-            rowFrom = action % 8
-            colFrom = action // 8 % 8
-            rowWhere = (action // 64) % 8
-            colWhere = (action // 512) % 8 
         except:
             action = str(action)
-            rowFrom = int(action[1]) - 1
-            colFrom = self.letters.index(action[0])
-            rowWhere = int(action[3]) - 1
-            colWhere = self.letters.index(action[2])  
+            uciRowFrom = int(action[1]) - 1
+            uciColFrom  = self.letters.index(action[0])
+            uciRowWhere = int(action[3]) - 1
+            uciColWhere = self.letters.index(action[2])  
 
         uciMove = f'{self.letters[uciColFrom]}{uciRowFrom+1}{self.letters[uciColWhere]}{uciRowWhere+1}' 
         if color:
-            rowFrom = 7 - rowFrom
-            rowWhere = 7 - rowWhere
+            uciRowFrom = 7 - uciRowFrom
+            uciRowWhere = 7 - uciRowWhere
         else:
-            colFrom = 7 - colFrom
-            colWhere = 7 - colWhere
+            uciColFrom = 7 - uciColFrom
+            uciColWhere = 7 - uciColWhere
             
-        fig = state[rowFrom, colFrom]
-        assert fig > 0, "Figure not choosen"
+        # fig = state[uciRowFrom, uciColFrom]
+        # assert fig > 0, "Figure not choosen"
         
-        state[rowFrom, colFrom] = 0
-        try:
+        try:  
             board.push_uci(uciMove)
-            state[rowWhere, colWhere] = fig
         except chess.IllegalMoveError:
             try:
                 uciMove = uciMove + 'q'
                 board.push_uci(uciMove)
-                state[rowWhere, colWhere] = 5
             except:
                 print('Chuyali???Vonyaet')
+        state = self.posFromFen(board.fen())
+        if not color:
+            state = self.changePerspective(state)
         return (state, board)
     
     def checkWin(self):

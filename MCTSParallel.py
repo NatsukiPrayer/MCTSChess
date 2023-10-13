@@ -31,7 +31,7 @@ class MCTSParallel:
             if boards[i].turn == chess.BLACK:
                 zeros = np.flip(zeros)
             spgPolicy *= zeros
-            spgPolicy /= np.sum(spgPolicy)
+            spgPolicy /= np.sum(policy)
 
             spg.root = Node(self.game, self.args, states[i], boards[i], prior = 1)
             spg.root.expand(spgPolicy, spg.root.visitCount+1, spg.root.board.turn == chess.WHITE)

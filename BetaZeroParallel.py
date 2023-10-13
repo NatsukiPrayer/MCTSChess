@@ -30,7 +30,9 @@ class BetaZeroParallel:
         idx = 0
         # for spg in spGames:
         #     spg.state = self.game.changePerspective(spg.state)
+        cheks = 0
         tqdm.write('New game started\n')
+        returnMemory = []
         while len(spGames) > 0:
             firstBoards = [str(game.board).split("\n") for game in spGames[:10]]
             boardStates = '\n'.join(''.join([f"{el:20}" for el in row]) for row in zip(*firstBoards))
@@ -64,12 +66,12 @@ class BetaZeroParallel:
                 action = np.random.choice(self.game.actionSize, p=actionProbs)
                 spg.state, spg.board = self.game.getNextState(spg.state, action, spg.board, spg.board.turn == chess.WHITE)
                 value, isTerminal = self.game.getValAndTerminate(spg.board)
-                if idx == 30:
-                    value  = 0
+                if idx > 15:
+                    value = 0
                     isTerminal = True
-
                 if isTerminal:
-                    returnMemory = []
+                    if value != 0:
+                        cheks += 1
                     for idx, tup in enumerate(spg.memory):
                         histNeutralState, histActionProbs = tup
                         histOutcome = value if idx % 2 == 0 else -value
@@ -78,7 +80,8 @@ class BetaZeroParallel:
                 spg.state = self.game.changePerspective(spg.state)
             player = not player
             idx += 1
-
+        
+        tqdm.write(f'{cheks}/8 games ended with chekmate\n')
         return returnMemory
 
 
@@ -116,13 +119,12 @@ class BetaZeroParallel:
                 memory += self.selfPlay()
 
             self.model.train()
+            avgLoss = 0
             for i in (numEpochs:= tqdm(range(self.args['numEpochs']), leave=False)):
                 numEpochs.set_description("Epochs")
                 loss = self.train(memory)
-                self.ev()
-                lossTest = self.train(memory, train=False)
-                writer.add_scalar('Loss/train', loss, i)
-                writer.add_scalar('Loss/test', lossTest, i)
+                avgLoss += loss
+            writer.add_scalar('Loss/train', avgLoss/self.args['numEpochs'], iteration)
             torch.save(self.model.state_dict(), f"model_{iteration}.pt")
             torch.save(self.optimizer.state_dict(), f"optimizer_{iteration}.pt")
     

@@ -23,7 +23,7 @@ if "model" in args and args["model"] != "":
     model.load_state_dict(torch.load(args["model"]))
 # model.eval()
 
-player = True 
+player = False 
 
 optimizer = torch.optim.Adam(model.parameters(), lr=0.001)
 if "optimizer" in args and args["optimizer"] != "":
@@ -34,7 +34,7 @@ if args["numParallelGames"] > 1:
 else:
     betaZero = BetaZero(model, optimizer, chessGame, args)
 
-betaZero.learn()
+# betaZero.learn()
 
 mcts = MCTS( model, chessGame, args)
 state, board = chessGame.getInitialState()
@@ -49,10 +49,9 @@ while True:
         if not Move.from_uci(action) in validMoves:
             continue
             print("Invalid move")
-    
     else:
         neutralState = chessGame.changePerspective(state)
-        mctsProbs = mcts.search(neutralState, board)
+        mctsProbs = mcts.search(neutralState, board, 1)
         action = np.argmax(mctsProbs)
     state, board = chessGame.getNextState(state, action, board, player)
     value, isTerminal = chessGame.getValAndTerminate(board)

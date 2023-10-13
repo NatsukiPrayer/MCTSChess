@@ -116,7 +116,16 @@ class Node:
                 childState = self.state.copy()
                 childBoard = self.board.copy()
                 childState, childBoard  = self.game.getNextState(childState, action, childBoard, color)
+                
                 childState = self.game.changePerspective(childState)
+                if childBoard.turn == chess.WHITE:
+                    stateCheck = childState
+                else:
+                    stateCheck = self.game.changePerspective(childState)
+
+                boardState = self.game.posFromFen(childBoard.fen())
+
+                assert all([all([el1 == el2 for el1, el2 in zip(row1, row2)]) for row1, row2 in zip(boardState, stateCheck)]), "Board and state different"
                 child = Node(self.game, self.args, childState, childBoard, self, action, prob)
                 self.children.append(child)
                 # child.updateUCB(child.getUCB_Self(), 0, search)
