@@ -1,3 +1,4 @@
+import chess
 from MCTSParallel import MCTSParallel
 from SPG import SPG
 
@@ -27,19 +28,30 @@ class BetaZeroParallel:
 
 
         idx = 0
+        # for spg in spGames:
+        #     spg.state = self.game.changePerspective(spg.state)
         tqdm.write('New game started\n')
         while len(spGames) > 0:
             firstBoards = [str(game.board).split("\n") for game in spGames[:10]]
             boardStates = '\n'.join(''.join([f"{el:20}" for el in row]) for row in zip(*firstBoards))
             tqdm.write(f"{boardStates}\n")
             states = np.stack([spg.state for spg in spGames])
+            
             boards = [spg.board for spg in spGames]
-            neutralStates = states * -1
-            self.mcts.search(neutralStates, boards, idx, spGames)
+            self.mcts.search(states, boards, idx, spGames)
 
             for i in (numGames := tqdm(range(len(spGames))[::-1], leave=False)):
                 numGames.set_description(f'Game {idx}')
                 spg = spGames[i]
+                
+                if spg.board.turn == chess.WHITE:
+                    stateCheck = spg.state
+                else:
+                    stateCheck = self.game.changePerspective(spg.state)
+
+                boardState = self.game.posFromFen(spg.board.fen())
+
+                assert all([all([el1 == el2 for el1, el2 in zip(row1, row2)]) for row1, row2 in zip(boardState, stateCheck)]), "Board and state different"
 
                 actionProbs = np.zeros(self.game.actionSize)
                 if len(spg.root.children) == 0:
@@ -50,10 +62,12 @@ class BetaZeroParallel:
                 actionProbs /= a
                 spg.memory.append((spg.root.state, actionProbs))
                 action = np.random.choice(self.game.actionSize, p=actionProbs)
-                spgState, board = self.game.getNextState(spg.state, action, spg.board)
+                spg.state, spg.board = self.game.getNextState(spg.state, action, spg.board, spg.board.turn == chess.WHITE)
                 value, isTerminal = self.game.getValAndTerminate(spg.board)
-                
-                
+                if idx == 30:
+                    value  = 0
+                    isTerminal = True
+
                 if isTerminal:
                     returnMemory = []
                     for idx, tup in enumerate(spg.memory):
@@ -61,8 +75,10 @@ class BetaZeroParallel:
                         histOutcome = value if idx % 2 == 0 else -value
                         returnMemory.append((self.game.getEncodedState(histNeutralState), histActionProbs, histOutcome))
                     del spGames[i]
+                spg.state = self.game.changePerspective(spg.state)
             player = not player
             idx += 1
+
         return returnMemory
 
 
@@ -89,6 +105,7 @@ class BetaZeroParallel:
 
 
     def learn(self):
+        writer = SummaryWriter(f'logdir/{t.time()}')
         for iteration in (numIterations := tqdm(range(self.args['numIterations']), leave=False)):
             numIterations.set_description("Iterations")
             memory = []
@@ -99,9 +116,13 @@ class BetaZeroParallel:
                 memory += self.selfPlay()
 
             self.model.train()
-            for _ in (numEpochs:= tqdm(range(self.args['numEpochs']), leave=False)):
+            for i in (numEpochs:= tqdm(range(self.args['numEpochs']), leave=False)):
                 numEpochs.set_description("Epochs")
-                self.train(memory)
+                loss = self.train(memory)
+                self.ev()
+                lossTest = self.train(memory, train=False)
+                writer.add_scalar('Loss/train', loss, i)
+                writer.add_scalar('Loss/test', lossTest, i)
             torch.save(self.model.state_dict(), f"model_{iteration}.pt")
             torch.save(self.optimizer.state_dict(), f"optimizer_{iteration}.pt")
     

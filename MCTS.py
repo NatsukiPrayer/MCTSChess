@@ -110,12 +110,12 @@ class Node:
         return qValue + self.args['C'] * ((1 / (self.visitCount + 1))) * self.prior
 
 
-    def  expand(self, policy, search):
+    def expand(self, policy, search, color):
         for action, prob in enumerate(policy):
             if prob > 0:
                 childState = self.state.copy()
                 childBoard = self.board.copy()
-                childState, childBoard  = self.game.getNextState(childState, action, childBoard)
+                childState, childBoard  = self.game.getNextState(childState, action, childBoard, color)
                 childState = self.game.changePerspective(childState)
                 child = Node(self.game, self.args, childState, childBoard, self, action, prob)
                 self.children.append(child)
@@ -144,7 +144,7 @@ class Drawer:
 
     def update(self, node):
         
-        pt = PrettyPrintTree(lambda x: [y for y in x.children if y.visitCount > 0], lambda x: x.val, max_depth=-1, return_instead_of_print=True, color=None)
+        pt = PrettyPrintTree(lambda x: [y for y in x.children], lambda x: x.val, max_depth=-1, return_instead_of_print=True, color=None)
         tree_as_str = pt(node)
         # with open('tree.txt', 'w', encoding="utf8") as f:
         #     f.write(tree_as_str)
@@ -162,7 +162,7 @@ class Drawer:
         d.text((20, 20), tree_as_str, fill=(255, 255, 255), font=font)
         img.show()
         img.save('tree.tiff')
-        exit()
+        # exit()
 
         
 class MCTS:
@@ -179,11 +179,11 @@ class MCTS:
 
             
         for iter in (num_searches := tqdm(range(self.args['num_searches']), leave=False)):
-            # self.drawer.update()
             num_searches.set_description(f"Searches {idx}")
             node = root
             while node.isFullyExpanded():
                 node = node.select()
+            # self.drawer.update(root)
 
             value, isTerminal = self.game.getValAndTerminate(node.board)
             value = value * -1 
@@ -195,13 +195,13 @@ class MCTS:
                 for move in validMoves:
                     zeros[encode(str(move))] = 1
                 if node.board.turn == chess.BLACK:
-                    zeros = np.transpose(zeros)
+                    zeros = np.flip(zeros)
                 policy *= zeros
                 policy /= np.sum(policy)
 
                 value = value.item()
 
-                node = node.expand(policy, iter)
+                node = node.expand(policy, iter, node.board.turn == chess.WHITE)
 
             node.backpropogate(value, iter)
 

@@ -29,12 +29,12 @@ class MCTSParallel:
             for move in validMoves:
                 zeros[encode(str(move))] = 1
             if boards[i].turn == chess.BLACK:
-                zeros = np.transpose(zeros)
+                zeros = np.flip(zeros)
             spgPolicy *= zeros
             spgPolicy /= np.sum(spgPolicy)
 
             spg.root = Node(self.game, self.args, states[i], boards[i], prior = 1)
-            spg.root.expand(spgPolicy, spg.root.visitCount+1)
+            spg.root.expand(spgPolicy, spg.root.visitCount+1, spg.root.board.turn == chess.WHITE)
 
            
             
@@ -71,10 +71,10 @@ class MCTSParallel:
                 for move in validMoves:
                     zeros[encode(str(move))] = 1
                 if node.board.turn == chess.BLACK:
-                    zeros = np.transpose(zeros)
+                    zeros = np.flip(zeros)
                 spgPolicy *= zeros
                 spgPolicy /= np.sum(policy)
-                node = node.expand(spgPolicy, spGames[mappingIndx].root.visitCount + 1)
+                node = node.expand(spgPolicy, spGames[mappingIndx].root.visitCount + 1, node.board.turn == chess.WHITE)
                 node.backpropogate(spgValue, spGames[mappingIndx].root.visitCount + 1)
         # self.drawer.update(spGames[0].root)
 
