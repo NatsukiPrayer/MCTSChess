@@ -15,36 +15,43 @@ class MCTSParallel:
 
 
     @torch.no_grad()
-    def search(self, states, boards, idx, spGames):
+    def search(self, *args):
+        states, boards, idx, spGames = args[0]
         policy, _ = self.model(torch.tensor(self.game.getEncodedState(states), device=self.args["device"]))
         policy = torch.softmax(policy, axis=1).cpu().numpy()
         
-        root = Node(self.game, self.args, states, boards, prior = 1)
-        self.drawer = Drawer(root)
+        # root = Node(self.game, self.args, states, boards, prior = 1)
 
         for i, spg in enumerate(spGames):
             spgPolicy = policy[i]
             validMoves = self.game.getValidMoves(boards[i])
-            zeros = np.zeros(4096)
+            mask = np.zeros(4096)
             for move in validMoves:
-                zeros[encode(str(move))] = 1
+                mask[encode(str(move))] = 1
             if boards[i].turn == chess.BLACK:
-                zeros = np.flip(zeros)
-            spgPolicy *= zeros
-            spgPolicy /= np.sum(spgPolicy)
+                mask = np.flip(mask)
+            spgPolicy *= mask
+            spSum = np.sum(spgPolicy)
+            if spSum > 0:
+                spgPolicy /= spSum
+            else:
+                spgPolicy = mask
 
             spg.root = Node(self.game, self.args, states[i], boards[i], prior = 1)
-            spg.root.expand(spgPolicy, spg.root.visitCount+1, spg.root.board.turn == chess.WHITE)
+            spg.root.expand(spgPolicy, mask, spg.root.board.turn == chess.WHITE)
 
            
+        self.drawer = Drawer(spGames[0].root)
             
-        for _ in (num_searches := tqdm(range(self.args['num_searches']), leave=False)):
-            num_searches.set_description(f"Search {idx}")
+        # for _ in (num_searches := tqdm(range(self.args['num_searches']), leave=False)):
+            # num_searches.set_description(f"Search {idx}")
+        for _ in range(self.args['num_searches']):
             for spg in spGames:
                 spg.node = None
                 node = spg.root
       
                 while node.isFullyExpanded():
+                    prevNode = node
                     node = node.select()
             
                 value, isTerminal = self.game.getValAndTerminate(node.board)
@@ -67,16 +74,31 @@ class MCTSParallel:
                 node = spGames[mappingIndx].node
                 spgPolicy, spgValue = policy[i], value[i]
                 validMoves = self.game.getValidMoves(node.board)
-                zeros = np.zeros(4096)
+                mask = np.zeros(4096)
                 for move in validMoves:
-                    zeros[encode(str(move))] = 1
+                    mask[encode(str(move))] = 1
                 if node.board.turn == chess.BLACK:
-                    zeros = np.flip(zeros)
-                spgPolicy *= zeros
-                spgPolicy /= np.sum(policy)
-                node = node.expand(spgPolicy, spGames[mappingIndx].root.visitCount + 1, node.board.turn == chess.WHITE)
+                    mask = np.flip(mask)
+                spgPolicy *= mask
+                sum = np.sum(spgPolicy)
+                if sum > 0:
+                    spgPolicy /= np.sum(spgPolicy)
+                else:
+                    spgPolicy = mask                
+                node = node.expand(spgPolicy, mask, node.board.turn == chess.WHITE)
                 node.backpropogate(spgValue, spGames[mappingIndx].root.visitCount + 1)
         # self.drawer.update(spGames[0].root)
+        actions = []
+        for spg in spGames:
+            actionProbs = np.zeros(self.game.actionSize)
+            for child in spg.root.children:
+                if child.visitCount != 0:
+                    actionProbs[child.actionTaken] = child.visitCount
+                
+            a = np.sum(actionProbs)
+            actionProbs /= a
+            actions.append((spg.root.state, actionProbs))
+        return actions
 
             
 

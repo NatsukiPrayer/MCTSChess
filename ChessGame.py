@@ -1,6 +1,9 @@
 import random
+from typing import Deque
 import chess 
 import numpy as np
+
+import os
 
 figures = ('', 'p', 'r', 'n', 'b', 'q', 'k')
 
@@ -8,8 +11,8 @@ class ChessGame:
     def __init__(self, numParallel):
         self.rowCount = 8
         self.fens = [
-            "r6r/p7/5R1p/7k/6R1/7P/2P3P1/2K5 w - - 0 1",
-            "r6r/p5R1/5R1p/8/7k/7P/2P3P1/2K5 w - - 0 1",
+            "r6r/6R1/p6p/7k/5R2/6PP/2P5/2K5 w - - 0 1",
+            "r6r/p5R1/7p/7k/5R2/7P/2P3P1/2K5 w - - 0 1",
             "r6r/p1p3R1/3n1R1p/8/7k/7P/2P3P1/2K5 w - - 0 1",
             "5rk1/4Pp1p/4q1p1/2p5/6P1/3r3P/6B1/Q4RK1 w - - 0 1",
             "5r1k/4Pp1p/4q1p1/2p5/6P1/3r3P/6B1/5RK1 w - - 0 1",
@@ -20,10 +23,12 @@ class ChessGame:
             "3k2K1/1p4b1/8/8/4b3/8/8/6q1 w - - 0 1",
             "8/2n2B2/p4p2/1p3k1p/P4P2/1P2K1PP/8/8 w - - 0 1"
             ]
+
         self.colCount = 8
         self.actionSize = (self.rowCount * self.colCount)**2
         self.board = chess.Board()
         self.numParallel = numParallel
+        self.memory = Deque(maxlen=10000)
         
         self.letters = ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h']
 
