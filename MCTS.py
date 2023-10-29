@@ -51,7 +51,7 @@ class Node:
 
      
 
-    def __init__(self, game: ChessGame, args, state, board: chess.Board, parent=None, actionTaken = None, prior=0):
+    def __init__(self, game: ChessGame, args, state, board: chess.Board, parent=None, actionTaken = None, prior=0, visitCount = 0):
         self.game = game
         self.args = args
         self.state = state
@@ -68,7 +68,7 @@ class Node:
 
         self.children = []
 
-        self.visitCount = 0
+        self.visitCount = visitCount
         self.valueSum = 0
 
 
@@ -216,6 +216,5 @@ class MCTS:
         actionProbs /= a
         return actionProbs
            
-            #backprop
     #return visit counts
 
