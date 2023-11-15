@@ -6,7 +6,7 @@ from SPG import SPG
 
 import random
 import numpy as np
-from MCTS import MCTS
+from MCTS import MCTS, encode
 import torch
 from ChessGame import ChessGame
 from torch.utils.tensorboard import SummaryWriter
@@ -27,6 +27,7 @@ class BetaZeroParallel:
         self.poolSize = min(self.poolSize, os.cpu_count())
 
     def selfPlay(self):
+        returnMemory = []
         player = True
         spGames = [SPG(self.game) for _ in range(self.args['numParallelGames'])]
 
@@ -38,13 +39,14 @@ class BetaZeroParallel:
         tqdm.write('New game started\n')
         with mp.Pool(self.poolSize) as pool:
             while len(spGames) > 0:
+                tqdm.write(f"{idx+1} turn\nRemaining Games {len(spGames)}/40\nmates: {mates}/{40-len(spGames)}")
                 firstBoards = [str(game.board).split("\n") for game in spGames[:10]]
                 boardStates = '\n'.join(''.join([f"{el:20}" for el in row]) for row in zip(*firstBoards))
                 tqdm.write(f"{boardStates}\n")
                 states = np.stack([spg.state for spg in spGames])
                 
                 boards = [spg.board for spg in spGames]
-                step = math.ceil(self.poolSize / len(spGames))
+                step = math.ceil(len(spGames) / self.poolSize)
                 
                 actions = []
                 for result in pool.map(self.mcts.search, 
@@ -68,52 +70,68 @@ class BetaZeroParallel:
 
                     assert all([all([el1 == el2 for el1, el2 in zip(row1, row2)]) for row1, row2 in zip(boardState, stateCheck)]), "Board and state different"
 
-                    # actionProbs = np.zeros(self.game.actionSize)
-                    # if len(spg.root.children) == 0:
-                    #     raise Exception("GameEnd???")
-                    # for child in spg.root.children:
-                    #     if child.visitCount != 0:
-                    #         # actionProbs[child.actionTaken] = np.exp(-child.valueSum/child.visitCount)
-                    #         actionProbs[child.actionTaken] = child.visitCount
-                    # a = np.sum(actionProbs)
-                    # actionProbs /= a
-                    action = np.random.choice(self.game.actionSize, p=actions[i][1])
-                    # action = np.argmax(actionProbs)
-                    spg.memory.append((actions[i][0], actions[i][1], action))
+                    # action = np.random.choice(self.game.actionSize, p=actions[i][1])
+                    action = np.argmax(actions[i][1])
+                    spg.memory.append((actions[i][0], actions[i][1], action, actions[i][3]))
                     spg.state, spg.board = self.game.getNextState(spg.state, action, spg.board, spg.board.turn == chess.WHITE)
                     value, isTerminal = self.game.getValAndTerminate(spg.board)
-                    if idx == 16:
-                        value  = 0
+                    if idx == 15 and not isTerminal:
+                        # value = actions[i][2].item()
+                        value = 0
                         isTerminal = True
 
                     if isTerminal:
-                        if value != 0:
+                        if value == 1 or value == -1:
                             mates += 1
-                        value = -value if spg.board.turn else value
+                        memoryLen = math.ceil(len(spg.memory)/2)
                         for turn, tup in enumerate(spg.memory):
-                            histNeutralState, histActionProbs, action = tup
+                            histNeutralState, histActionProbs, action, mask = tup
                             histOutcome = value if turn % 2 == 0 else -value
-                            mask = np.zeros(self.game.actionSize)
-                            for action, prob in enumerate(histActionProbs):
-                                if prob > 0:
-                                    mask[action] = 1
-                            histActionProbs[action] *= histOutcome
-                            histActionProbs -= np.min(histActionProbs)
-                            histActionProbs *= mask
-                            actionSum = np.sum(histActionProbs)
-                            if actionSum > 0:
-                                histActionProbs /= actionSum
+
+                            if histOutcome < 1:
+                                base = histActionProbs[action]
+                                coef = 1 if histOutcome == -1 else 0.5
+                                nonZero = np.count_nonzero(histActionProbs)
+                                maskNonZero = np.count_nonzero(mask)
+                                for act, isVal in enumerate(mask):
+                                    if isVal == 0:
+                                        continue
+                                    if act == action:
+                                        histActionProbs[act] -= ((turn//2+1)/memoryLen) * coef * base / nonZero
+                                        if histActionProbs[act] < 0:
+                                            histActionProbs[act] = 0
+                                    elif histActionProbs[act] != 0:
+                                        histActionProbs[act] += ((turn//2+1)/memoryLen) * coef * base / nonZero
+                                    else:
+                                        histActionProbs[act] += ((turn//2+1)/memoryLen) * coef * (1 / (maskNonZero - nonZero)) * base
                             else:
-                                histActionProbs = mask
-                                histActionProbs /= np.sum(histActionProbs)
-                            self.game.memory.append((self.game.getEncodedState(histNeutralState), histActionProbs, histOutcome))
+                                histActionProbs[action] += ((turn//2+1)/memoryLen)
+                            
+                            histActionProbs /= np.sum(histActionProbs)
+
+                            # histActionProbs[action] *= histOutcome
+                            # histActionProbs[action] += ((turn//2+1)/memoryLen) * (1 if histOutcome > 0 else -1)
+                            # if histActionProbs[action] < 0:
+                            #     mask = np.zeros(4096)
+                            #     for act, prob in enumerate(histActionProbs):
+                            #         if prob != 0:
+                            #             mask[act] = 1
+                            # if np.sum(histActionProbs) <= 0:
+                            #     histActionProbs[action] = 0
+                            # if np.sum(histActionProbs) > 0:
+                            #     histActionProbs[action] /= np.sum(histActionProbs)
+                            # else:
+                            #     if np.sum(mask) != 1:
+                            #         mask[action] = 0
+                            #         histActionProbs = mask / np.sum(mask)
+                            returnMemory.append((self.game.getEncodedState(histNeutralState), histActionProbs, histOutcome))
                         del spGames[i]
                     else:
                         spg.state = self.game.changePerspective(spg.state)
                 player = not player
                 idx += 1
         tqdm.write(f"Results: {mates}/{self.args['numParallelGames']}\n")
-        return self.game.memory
+        return returnMemory
 
 
     def train(self, memory, train=True):

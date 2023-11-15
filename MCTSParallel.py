@@ -24,6 +24,8 @@ class MCTSParallel:
 
         for i, spg in enumerate(spGames):
             spgPolicy = policy[i]
+            spgPolicy = (1-self.args["dirichlet_epsilon"])*spgPolicy+self.args["dirichlet_epsilon"]\
+                *np.random.dirichlet([self.args["dirichlet_alpha"]] * self.game.actionSize)
             validMoves = self.game.getValidMoves(boards[i])
             mask = np.zeros(4096)
             for move in validMoves:
@@ -37,7 +39,7 @@ class MCTSParallel:
             else:
                 spgPolicy = mask
 
-            spg.root = Node(self.game, self.args, states[i], boards[i], prior = 1)
+            spg.root = Node(self.game, self.args, states[i], boards[i], visitCount=1, prior = 1)
             spg.root.expand(spgPolicy, mask, spg.root.board.turn == chess.WHITE)
 
            
@@ -91,19 +93,20 @@ class MCTSParallel:
         actions = []
         for spg in spGames:
             actionProbs = np.zeros(self.game.actionSize)
+            mask = np.zeros(self.game.actionSize)
             for child in spg.root.children:
+                mask[child.actionTaken] = 1
                 if child.visitCount != 0:
                     actionProbs[child.actionTaken] = child.visitCount
+
+            actionProbs = actionProbs ** (1/self.args['temperature'])
                 
             a = np.sum(actionProbs)
             actionProbs /= a
-            actions.append((spg.root.state, actionProbs))
+            spgVal = spg.root.valueSum/spg.root.visitCount
+            spgVal = spgVal if spg.root.board.turn else -spgVal
+            actions.append((spg.root.state, actionProbs, spgVal, mask))
+        # self.drawer.update(spg.root)
         return actions
-
-            
-
-        # self.drawer.update()
-        
-           
             #backprop
     #return visit counts
