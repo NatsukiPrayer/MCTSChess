@@ -39,6 +39,7 @@ class BetaZeroParallel:
         tqdm.write('New game started\n')
         with mp.Pool(self.poolSize) as pool:
             while len(spGames) > 0:
+                # Steps info and first boards print
                 tqdm.write(f"{idx+1} turn\nRemaining Games {len(spGames)}/40\nmates: {mates}/{40-len(spGames)}")
                 firstBoards = [str(game.board).split("\n") for game in spGames[:10]]
                 boardStates = '\n'.join(''.join([f"{el:20}" for el in row]) for row in zip(*firstBoards))
@@ -70,8 +71,8 @@ class BetaZeroParallel:
 
                     assert all([all([el1 == el2 for el1, el2 in zip(row1, row2)]) for row1, row2 in zip(boardState, stateCheck)]), "Board and state different"
 
-                    # action = np.random.choice(self.game.actionSize, p=actions[i][1])
-                    action = np.argmax(actions[i][1])
+                    action = np.random.choice(self.game.actionSize, p=actions[i][1])
+                    # action = np.argmax(actions[i][1])
                     spg.memory.append((actions[i][0], actions[i][1], action, actions[i][3]))
                     spg.state, spg.board = self.game.getNextState(spg.state, action, spg.board, spg.board.turn == chess.WHITE)
                     value, isTerminal = self.game.getValAndTerminate(spg.board)

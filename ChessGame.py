@@ -40,7 +40,7 @@ class ChessGame:
         self.actionSize = (self.rowCount * self.colCount)**2
         self.board = chess.Board()
         self.numParallel = numParallel
-        self.memory = Deque(maxlen=10000)
+        # self.memory = Deque(maxlen=524288)
         
         self.letters = ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h']
 

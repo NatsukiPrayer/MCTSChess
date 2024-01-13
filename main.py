@@ -20,14 +20,17 @@ if __name__ == "__main__":
 
 
     chessGame = ChessGame(args["numParallelGames"])
+    
+    # model = ResNet(chessGame, 32, 128, args["device"])
     model = ResNet(chessGame, 16, 64, args["device"])
+    
     if "model" in args and args["model"] != "":
-        model.load_state_dict(torch.load(args["model"]))
+        model.load_state_dict(torch.load(args["model"], map_location=args["device"]))
     # model.eval()
 
     player = True
 
-    optimizer = torch.optim.Adam(model.parameters(), lr=0.005)
+    optimizer = torch.optim.Adam(model.parameters(), lr=0.005, weight_decay=0.0001)
     if "optimizer" in args and args["optimizer"] != "":
         optimizer.load_state_dict(torch.load(args["optimizer"]))
 

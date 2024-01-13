@@ -8,7 +8,6 @@ from PrettyPrint import PrettyPrintTree
 from tqdm import tqdm
 
 letters = ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h']
-device = 'cuda'
 def encode(inp: str):
     action = str(inp)
     rowFrom = (int(action[1]) - 1) 
@@ -145,7 +144,8 @@ class Drawer:
 
     def update(self, node):
         
-        pt = PrettyPrintTree(lambda x: [y for y in x.children if y.visitCount > 0], lambda x: x.val, max_depth=-1, return_instead_of_print=True, color=None)
+        # pt = PrettyPrintTree(lambda x: [y for y in x.children if y.visitCount > 0], lambda x: x.val, max_depth=-1, return_instead_of_print=True, color=None)
+        pt = PrettyPrintTree(lambda x: [y for y in x.children], lambda x: x.val, max_depth=2, return_instead_of_print=True, color=None)
         tree_as_str = pt(node)
         # with open('tree.txt', 'w', encoding="utf8") as f:
         #     f.write(tree_as_str)
