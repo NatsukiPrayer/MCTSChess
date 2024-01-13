@@ -8,3 +8,4 @@ __pycache__
 *.tiff
 config.json
 *.csv
+logdir
