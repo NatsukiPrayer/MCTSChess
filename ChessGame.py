@@ -1,11 +1,13 @@
 import random
-from typing import Deque
-import chess 
+
+# from typing import Deque
+import chess
 import numpy as np
 
-import os
+# import os
 
-figures = ('', 'p', 'r', 'n', 'b', 'q', 'k')
+figures = ("", "p", "r", "n", "b", "q", "k")
+
 
 class ChessGame:
     def __init__(self, numParallel):
@@ -33,20 +35,20 @@ class ChessGame:
             "k7/4P3/2K5/8/8/8/8/8 w - - 0 1",
             "8/8/5R2/8/2kNKP2/P7/5P2/8 w - - 0 1",
             "8/8/5R2/8/2KNkP2/P7/5P2/8 w - - 0 1",
-            "r1b2rk1/2p2ppp/p7/1p6/3P3q/1BP3bP/PP3QP1/RNB1R1K1 w - - 0 1"
-            ]
+            "r1b2rk1/2p2ppp/p7/1p6/3P3q/1BP3bP/PP3QP1/RNB1R1K1 w - - 0 1",
+        ]
 
         self.colCount = 8
-        self.actionSize = (self.rowCount * self.colCount)**2
+        self.actionSize = (self.rowCount * self.colCount) ** 2
         self.board = chess.Board()
         self.numParallel = numParallel
         # self.memory = Deque(maxlen=524288)
-        
-        self.letters = ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h']
+
+        self.letters = ["a", "b", "c", "d", "e", "f", "g", "h"]
 
     def posFromFen(self, fen: str):
-        fen = fen.split(' ', maxsplit=1)[0].split('/')
-        pos = np.zeros((8,8))
+        fen = fen.split(" ", maxsplit=1)[0].split("/")  # type: ignore
+        pos = np.zeros((8, 8))
         for idx, row in enumerate(fen):
             j = 0
             i = 0
@@ -61,77 +63,95 @@ class ChessGame:
         return pos
 
     def getInitialState(self):
-        
         if self.numParallel > 1:
             board = chess.Board()
-            
+
         else:
             self.board.reset()
             board = self.board
-        board.set_fen(self.fens[random.randint(0, len(self.fens)-1)])
+        board.set_fen(self.fens[random.randint(0, len(self.fens) - 1)])
         # self.board = board
         state = self.posFromFen(board.fen())
         return (state, board)
-    
+
     def decode(self, action, color):
         if not color:
             action = 4095 - action
         rowFrom = action % 8
         colFrom = action // 8 % 8
         rowWhere = (action // 64) % 8
-        colWhere = (action // 512) % 8 
+        colWhere = (action // 512) % 8
         return rowFrom, colFrom, rowWhere, colWhere
 
-    def getNextState(self, state, action, board, color): #TODO: fix this
-        
+    def getNextState(self, state, action, board, color):  # TODO: fix this
         try:
             rowFrom, colFrom, rowWhere, colWhere = self.decode(int(action), color)
-        except:
+        except Exception:
             action = str(action)
             rowFrom = int(action[1]) - 1
             colFrom = self.letters.index(action[0])
             rowWhere = int(action[3]) - 1
-            colWhere = self.letters.index(action[2])  
+            colWhere = self.letters.index(action[2])
 
-        uciMove = f'{self.letters[colFrom]}{rowFrom+1}{self.letters[colWhere]}{rowWhere+1}' 
-        
+        uciMove = f"{self.letters[colFrom]}{rowFrom+1}{self.letters[colWhere]}{rowWhere+1}"
+
         try:
             board.push_uci(uciMove)
         except chess.IllegalMoveError:
             try:
-                uciMove = uciMove + 'q'
+                uciMove = uciMove + "q"
                 board.push_uci(uciMove)
-            except:
-                print('Chuyali???Vonyaet')
-        
+            except Exception:
+                print("Chuyali???Vonyaet")
+
         state = self.posFromFen(board.fen())
         if not color:
             state = self.changePerspective(state)
         return (state, board)
-    
+
     def checkWin(self):
-            pass
-    
+        pass
+
     def getValAndTerminate(self, board: chess.Board):
         if board.is_checkmate():
             return (1, True)
-        elif board.is_variant_end() or board.is_stalemate() or board.is_repetition() or board.is_variant_draw() or board.is_insufficient_material() or board.is_fifty_moves():
+        elif (
+            board.is_variant_end()
+            or board.is_stalemate()
+            or board.is_repetition()
+            or board.is_variant_draw()
+            or board.is_insufficient_material()
+            or board.is_fifty_moves()
+        ):
             return (0, True)
         return (0, False)
-         
+
     def getValidMoves(self, board):
         return list(board.legal_moves)
 
     def changePerspective(self, state):
-        if len(state.shape) == 3: 
-            return np.rot90((state * -1), 2, axes=(1,2))
+        if len(state.shape) == 3:
+            return np.rot90((state * -1), 2, axes=(1, 2))
         return np.rot90((state * -1), 2)
-    
+
     def getEncodedState(self, state):
-        encodedState = np.stack((state == -6,state == -5,state == -4,state == -3,state == -2,state == -1,state == 0,state == 6,state == 5,state == 4,state == 3,state == 2,state == 1)).astype(np.float32)
+        encodedState = np.stack(
+            (
+                state == -6,
+                state == -5,
+                state == -4,
+                state == -3,
+                state == -2,
+                state == -1,
+                state == 0,
+                state == 6,
+                state == 5,
+                state == 4,
+                state == 3,
+                state == 2,
+                state == 1,
+            )
+        ).astype(np.float32)
         if len(state.shape) == 3:
             encodedState = np.swapaxes(encodedState, 0, 1)
-        return encodedState 
-
-
-
+        return encodedState

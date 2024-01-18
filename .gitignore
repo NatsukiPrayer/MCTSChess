@@ -1,11 +1,17 @@
 venv
 __pycache__
+
 .vscode
 .python-version
+.pylintrc
+
 *.python
 *.txt
 *.pt
 *.tiff
+
 config.json
 *.csv
+
 logdir
+Old*
