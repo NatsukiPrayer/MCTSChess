@@ -1,6 +1,5 @@
+from classes.ChessGame import ChessGame
 
-from typing import Any
-from ChessGame import ChessGame
 
 class SPG:
     def __init__(self, game: ChessGame) -> None:

@@ -10,7 +10,8 @@ __pycache__
 *.pt
 *.tiff
 
-config.json
+configs
+treeSaves
 *.csv
 
 logdir

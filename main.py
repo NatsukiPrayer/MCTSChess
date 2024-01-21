@@ -1,13 +1,13 @@
 import sys
-from BetaZeroParallel import BetaZeroParallel
-from ChessGame import ChessGame
+from classes.BetaZeroParallel import BetaZeroParallel
+from classes.ChessGame import ChessGame
 
-from MCTS import MCTS
+from classes.MCTS import MCTS
 import numpy as np
 from chess import Move
 import torch
-from BetaZero import BetaZero
-from NN import ResNet
+from classes.BetaZero import BetaZero
+from classes.NN import ResNet
 
 import json
 
@@ -15,7 +15,7 @@ import json
 if __name__ == "__main__":
     np.set_printoptions(threshold=sys.maxsize)
 
-    with open("config.json", "r") as f:
+    with open("configs/config.json", "r") as f:
         args = json.load(f)
 
     chessGame = ChessGame(args["numParallelGames"])

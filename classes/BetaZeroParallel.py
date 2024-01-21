@@ -1,14 +1,14 @@
 import math
 import os
 import chess
-from MCTSParallel import MCTSParallel
-from SPG import SPG
+from classes.MCTSParallel import MCTSParallel
+from classes.SPG import SPG
 from torch.utils.tensorboard.writer import SummaryWriter
 
 import random
 import numpy as np
 import torch
-from ChessGame import ChessGame
+from classes.ChessGame import ChessGame
 from tqdm import tqdm
 import torch.nn.functional as F
 import time as t

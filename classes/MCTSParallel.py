@@ -1,5 +1,7 @@
-from ChessGame import ChessGame
-from MCTS import Node, Drawer, encode
+from classes.ChessGame import ChessGame
+from classes.Node import Node
+from classes.Drawer import Drawer
+from helpers.encode import encode
 import torch
 import chess
 import numpy as np
