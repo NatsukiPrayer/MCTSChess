@@ -1,13 +1,13 @@
 import random
+import time as t
 import chess
 import numpy as np
-from MCTS import MCTS
+from classes.MCTS import MCTS
 import torch
-from ChessGame import ChessGame
+from classes.ChessGame import ChessGame
 from torch.utils.tensorboard.writer import SummaryWriter
 from tqdm import tqdm
 import torch.nn.functional as F
-import time as t
 
 device = "cuda"
 
