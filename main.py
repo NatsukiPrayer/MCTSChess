@@ -1,65 +1,59 @@
-import sys
 from classes.BetaZeroParallel import BetaZeroParallel
 from classes.ChessGame import ChessGame
-
 from classes.MCTS import MCTS
-import numpy as np
-from chess import Move
-import torch
 from classes.BetaZero import BetaZero
 from classes.NN import ResNet
 
+import helpers.argsParser
+
+from chess import Move
+import numpy as np
+import torch
+
 import json
+import sys
+
+from helpers.chessBoard import changePerspective, getNextState, getValAndTerminate, getValidMoves
 
 
-if __name__ == "__main__":
-    np.set_printoptions(threshold=sys.maxsize)
-
-    with open("configs/config.json", "r") as f:
-        args = json.load(f)
-
-    chessGame = ChessGame(args["numParallelGames"])
-
-    # model = ResNet(chessGame, 32, 128, args["device"])
-    model = ResNet(chessGame, 16, 64, args["device"])
-
-    if "model" in args and args["model"] != "":
-        model.load_state_dict(torch.load(args["model"], map_location=args["device"]))
-    # model.eval()
-
-    player = True
+def train(model: ResNet, game: ChessGame, config: dict):
+    if "model" in config and config["model"] != "":
+        model.load_state_dict(torch.load(config["model"], map_location=config["device"]))
 
     optimizer = torch.optim.Adam(model.parameters(), lr=0.005, weight_decay=0.0001)
-    if "optimizer" in args and args["optimizer"] != "":
-        optimizer.load_state_dict(torch.load(args["optimizer"]))
+    if "optimizer" in config and config["optimizer"] != "":
+        optimizer.load_state_dict(torch.load(config["optimizer"]))
 
-    if args["numParallelGames"] > 0:
-        betaZero = BetaZeroParallel(model, optimizer, chessGame, args)
+    # TODO: убрать этот if объеденив классы в 1
+    if config["numParallelGames"] > 0:
+        betaZero = BetaZeroParallel(model, optimizer, game, config)
     else:
-        betaZero = BetaZero(model, optimizer, chessGame, args)
+        betaZero = BetaZero(model, optimizer, game, config)
 
     betaZero.learn()
 
-    mcts = MCTS(model, chessGame, args)
-    state, board = chessGame.getInitialState()
-    tensorState = torch.tensor(chessGame.getEncodedState(state)).unsqueeze(0)
 
+def test(model: ResNet, game: ChessGame, config: dict):
+    model.eval()
+    mcts = MCTS(model, game, config)
+    state, board = game.getInitialState()
+
+    player = True
     while True:
         print(board)
         if not player:
-            validMoves = chessGame.getValidMoves(board)
+            validMoves = getValidMoves(board)
             print("valid moves", validMoves)
             action = input()
             if not Move.from_uci(action) in validMoves:
-                continue
                 print("Invalid move")
-
+                continue
         else:
-            neutralState = chessGame.changePerspective(state)
+            neutralState = changePerspective(state)
             mctsProbs = mcts.search(neutralState, board, idx=0)
             action = np.argmax(mctsProbs)
-        state, board = chessGame.getNextState(state, action, board, player)
-        value, isTerminal = chessGame.getValAndTerminate(board)
+        state, board = getNextState(state, action, board, player)
+        value, isTerminal = getValAndTerminate(board)
         if isTerminal:
             print(board)
             if value == 1:
@@ -69,3 +63,23 @@ if __name__ == "__main__":
             break
         player = not player
         print()
+
+
+def main(*args, **kwargs):
+    args = helpers.argsParser.parse(*args, **kwargs)
+    np.set_printoptions(threshold=sys.maxsize)
+
+    with open(args.config, "r") as f:
+        config = json.load(f)
+
+    chessGame = ChessGame()
+    # TODO: Create config for model
+    model = ResNet(chessGame, 32, 128, config["device"])
+    if args.mode == "train":
+        train(model, chessGame, config)
+    else:
+        test(model, chessGame, config)
+
+
+if __name__ == "__main__":
+    main()
