@@ -1,68 +1,93 @@
-from classes.ChessGame import ChessGame
-import numpy as np
-import chess
 import torch
-from tqdm import tqdm
-
-from classes.Node import Node
-from classes.Drawer import Drawer
-from helpers.encode import encode
+import chess
+import numpy as np
+from numpy.typing import NDArray
+from typing import List
+from classes.SPG import SPG
+from classes.ChessGame import ChessGame
+from helpers.chessBoard import getEncodedState, getValAndTerminate, getValidMoves, encode
 
 
 class MCTS:
-    def __init__(self, model, game: ChessGame, args):
-        self.game = game
+    def __init__(self, model, args):
         self.args = args
         self.model = model
         self.drawer = None
 
     @torch.no_grad()
-    def search(self, state, board, idx):
-        root = Node(self.game, self.args, state, board, prior=1)
-        self.drawer = Drawer(root)
+    def search(self, states: NDArray[np.floating], spGames: List[SPG]):
+        policy, _ = self.model(torch.tensor(getEncodedState(states), device=self.args["device"]))
+        # TODO: define policy type correctly
+        policy = torch.softmax(policy, axis=1).cpu().numpy()  # type:ignore
 
-        for iter in (num_searches := tqdm(range(self.args["num_searches"]), leave=False)):
-            num_searches.set_description(f"Searches {idx}")
-            node = root
+        # TODO: can we get rid of self.args?
+        for _ in range(self.args["num_searches"]):
+            for spg in spGames:
+                spg.node = None
+                node = spg.root
 
-            # while node.isFullyExpanded():
-            #     node = node.select()
+                # while node.isFullyExpanded():
+                #     prevNode = node
+                #     node = node.select()
 
-            while len(node.children) > 0:
-                node = node.select()
+                value, isTerminal = getValAndTerminate(node.board)
+                value = value * -1
 
-            # self.drawer.update(root)
+                # TODO: understand what is going on here
+                if isTerminal:
+                    node.backpropogate(value)
+                else:
+                    spg.node = node
 
-            value, isTerminal = self.game.getValAndTerminate(node.board)
-            value = value * -1
-            if not isTerminal:
-                policy, value = self.model(
-                    torch.tensor(self.game.getEncodedState(node.state), device=self.args["device"]).unsqueeze(0)
-                )
-                policy = torch.softmax(policy, axis=1).squeeze(0).cpu().numpy()  # type: ignore
-                validMoves = self.game.getValidMoves(node.board)
-                zeros = np.zeros(4096)
+            expandableSpgames = [
+                mappingIndx for mappingIndx in range(len(spGames)) if spGames[mappingIndx].node is not None
+            ]
+
+            if len(expandableSpgames) > 0:
+                # fmt: off
+                states = np.stack([spGames[mappingIndx].node.state for mappingIndx in expandableSpgames])  # type:ignore
+                # fmt: on
+                policy, value = self.model(torch.tensor(getEncodedState(states), device=self.args["device"]))
+                policy = torch.softmax(policy, axis=1).cpu().numpy()  # type: ignore
+                value = value.cpu().numpy()
+                # boards = [spGames[mappingIndx].node.board for mappingIndx in expandableSpgames]
+            for i, mappingIndx in enumerate(expandableSpgames):
+                node = spGames[mappingIndx].node
+                spgPolicy, spgValue = policy[i], value[i]  # type: ignore
+                validMoves = getValidMoves(node.board)  # type: ignore
+                mask = np.zeros(4096)
                 for move in validMoves:
-                    zeros[encode(str(move))] = 1
-                if node.board.turn == chess.BLACK:
-                    zeros = np.flip(zeros)
-                policy *= zeros
-                policy /= np.sum(policy)
+                    mask[encode(str(move))] = 1
+                if node.board.turn == chess.BLACK:  # type: ignore
+                    mask = np.flip(mask)
+                spgPolicy *= mask
+                sum = np.sum(spgPolicy)
+                if sum > 0:
+                    spgPolicy /= np.sum(spgPolicy)
+                else:
+                    spgPolicy = mask
+                node = node.expand(spgPolicy, node.board.turn == chess.WHITE)  # type: ignore
+                node.backpropogate(spgValue)
 
-                value = value.item()
+        # TODO: Can we change those valuesn in SPG if we don't erase node and it should exist further?
+        # ? Check this out
+        actions = []
+        for spg in spGames:
+            actionProbs = np.zeros(ChessGame.actionSize)
+            mask = np.zeros(ChessGame.actionSize)
+            for child in spg.root.children:
+                mask[child.actionTaken] = 1
+                if child.visitCount != 0:
+                    actionProbs[child.actionTaken] = child.visitCount
 
-                node = node.expand(policy, iter, node.board.turn == chess.WHITE)
+            actionProbs = actionProbs ** (1 / self.args["temperature"])
 
-            node.backpropogate(value, iter)
-
-        # self.drawer.update(root)
-        actionProbs = np.zeros(self.game.actionSize)
-        if len(root.children) == 0:
-            raise Exception("GameEnd???")
-        for child in root.children:
-            actionProbs[child.actionTaken] = child.visitCount
-        a = np.sum(actionProbs)
-        actionProbs /= a
-        return actionProbs
+            actionProbs /= np.sum(actionProbs)
+            spgVal = spg.root.valueSum / spg.root.visitCount
+            spgVal = spgVal if spg.root.board.turn else -spgVal
+            actions.append((spg.root.state, actionProbs, spgVal, mask))
+        # self.drawer.update(spg.root)
+        return actions
+        # backprop
 
     # return visit counts

@@ -1,6 +1,6 @@
 import math
 import chess
-from numpy import float64, int16
+from numpy import floating
 from numpy.typing import NDArray
 from helpers.chessBoard import changePerspective, encode, getNextState
 
@@ -18,7 +18,7 @@ class Node:
 
     def __init__(
         self,
-        state: NDArray[float64],  # TODO type
+        state: NDArray[floating],
         board: chess.Board,
         parent: "Node | None" = None,
         actionTaken: int | str | None = None,
@@ -59,8 +59,8 @@ class Node:
     def select(self):
         return self.children[0]
 
-    def expand(self, mask: NDArray[int16], color: bool) -> "Node":
-        for action, isLegal in enumerate(mask):
+    def expand(self, spgPolicy: NDArray[floating], color: bool) -> "Node":
+        for action, isLegal in enumerate(spgPolicy):
             if isLegal > 0:
                 childState = self.state.copy()
                 childBoard = self.board.copy()

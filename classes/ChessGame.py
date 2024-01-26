@@ -42,11 +42,11 @@ class ChessGame:
         self.board = chess.Board()
         # self.memory = Deque(maxlen=524288)
 
-    def getInitialState(self)
+    def getInitialState(self):
         self.board.set_fen(self.fens[random.randint(0, len(self.fens) - 1)])
         # self.board = board
         state = posFromFen(self.board.fen())
-        return (state, self.board) # TODO
+        return (state, self.board)  # TODO
 
     def checkWin(self):
         pass
