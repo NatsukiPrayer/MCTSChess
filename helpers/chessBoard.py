@@ -1,3 +1,4 @@
+from typing import Any
 import chess
 import numpy as np
 from numpy.typing import NDArray
@@ -25,7 +26,9 @@ def decode(action: int, color: bool):
     return rowFrom, colFrom, rowWhere, colWhere
 
 
-def getNextState(state: NDArray, action: int | str, board: chess.Board, color: bool):  # TODO: types; fix this
+def getNextState(
+    state: NDArray, action: np.signedinteger[Any] | int | str, board: chess.Board, color: bool
+):  # TODO: types; fix this
     try:
         rowFrom, colFrom, rowWhere, colWhere = decode(int(action), color)
         action = f"{letters[colFrom]}{rowFrom+1}{letters[colWhere]}{rowWhere+1}"
@@ -66,11 +69,11 @@ def getValAndTerminate(board: chess.Board):
     return (0, False)
 
 
-def getValidMoves(board):
-    return list(board.legal_moves)
+def getValidMoves(board: chess.Board):
+    return [encode(str(move)) for move in board.legal_moves]
 
 
-def changePerspective(state):
+def changePerspective(state: NDArray[np.float64]):
     if len(state.shape) == 3:
         return np.rot90((state * -1), 2, axes=(1, 2))
     return np.rot90((state * -1), 2)
@@ -93,7 +96,7 @@ def posFromFen(fen: str):
     return pos
 
 
-def getEncodedState(self, state):
+def getEncodedState(state: NDArray[np.float64]):
     encodedState = np.stack(
         (
             state == -6,

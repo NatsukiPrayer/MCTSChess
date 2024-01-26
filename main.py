@@ -13,6 +13,8 @@ import torch
 import json
 import sys
 
+from helpers.chessBoard import changePerspective, getNextState, getValAndTerminate, getValidMoves
+
 
 def train(model: ResNet, game: ChessGame, config: dict):
     if "model" in config and config["model"] != "":
@@ -23,7 +25,7 @@ def train(model: ResNet, game: ChessGame, config: dict):
         optimizer.load_state_dict(torch.load(config["optimizer"]))
 
     # TODO: убрать этот if объеденив классы в 1
-    if config["numParallelGames"] > 1:
+    if config["numParallelGames"] > 0:
         betaZero = BetaZeroParallel(model, optimizer, game, config)
     else:
         betaZero = BetaZero(model, optimizer, game, config)
@@ -40,18 +42,18 @@ def test(model: ResNet, game: ChessGame, config: dict):
     while True:
         print(board)
         if not player:
-            validMoves = game.getValidMoves(board)
+            validMoves = getValidMoves(board)
             print("valid moves", validMoves)
             action = input()
             if not Move.from_uci(action) in validMoves:
                 print("Invalid move")
                 continue
         else:
-            neutralState = game.changePerspective(state)
+            neutralState = changePerspective(state)
             mctsProbs = mcts.search(neutralState, board, idx=0)
             action = np.argmax(mctsProbs)
-        state, board = game.getNextState(state, action, board, player)
-        value, isTerminal = game.getValAndTerminate(board)
+        state, board = getNextState(state, action, board, player)
+        value, isTerminal = getValAndTerminate(board)
         if isTerminal:
             print(board)
             if value == 1:
@@ -70,9 +72,9 @@ def main(*args, **kwargs):
     with open(args.config, "r") as f:
         config = json.load(f)
 
-    chessGame = ChessGame(config["numParallelGames"])
+    chessGame = ChessGame()
     # TODO: Create config for model
-    model = ResNet(chessGame, 16, 64, config["device"])
+    model = ResNet(chessGame, 32, 128, config["device"])
     if args.mode == "train":
         train(model, chessGame, config)
     else:
