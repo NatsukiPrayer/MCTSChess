@@ -96,7 +96,7 @@ def posFromFen(fen: str):
     return pos
 
 
-def getEncodedState(state: NDArray[np.float64]):
+def getEncodedState(state: NDArray[np.floating]):
     encodedState = np.stack(
         (
             state == -6,
@@ -113,7 +113,7 @@ def getEncodedState(state: NDArray[np.float64]):
             state == 2,
             state == 1,
         )
-    ).astype(np.float32)
+    ).astype(np.floating)
     if len(state.shape) == 3:
         encodedState = np.swapaxes(encodedState, 0, 1)
     return encodedState

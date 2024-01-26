@@ -1,11 +1,14 @@
 import math
+import random
 import time
 import os
 import chess
 import numpy as np
+from numpy.typing import NDArray
 import torch
 import multiprocessing as mp
 from torch.utils.tensorboard.writer import SummaryWriter
+import torch.nn.functional as F
 from tqdm import tqdm
 from classes.ChessGame import ChessGame
 from classes.NN import ResNet
@@ -28,6 +31,7 @@ class BetaZero:
             self.writer = SummaryWriter(f"logdir/{time.time()}")
 
         self.spGames: list[SPG] = []
+        self.memory: list[tuple[NDArray[np.floating], NDArray[np.floating], float]] = []
 
         self.poolSize = 1
         if "numProcesses" in args and args["numProcesses"] > 1:
@@ -62,7 +66,6 @@ class BetaZero:
 
     def selfPlay(self):
         idx = 0
-        returnMemory = []
         player = True
         mates = 0
         self.model.eval()
@@ -111,7 +114,7 @@ class BetaZero:
                     value = 0
                     isTerminal = True
                 elif isTerminal:
-                    self.gameIsTerminal(self.spGames[i], value, mates, returnMemory)
+                    self.gameIsTerminal(self.spGames[i], value, mates)
                     del self.spGames[i]
                 else:
                     # TODO: понять делается на доске ход
@@ -124,7 +127,7 @@ class BetaZero:
                 player = not player
                 idx += 1
         tqdm.write(f"Results: {mates}/{self.args['numParallelGames']}\n")
-        return returnMemory
+        return self.memory
 
     def initRoots(self):
         states = np.stack([spg.state for spg in self.spGames])
@@ -150,7 +153,12 @@ class BetaZero:
                 spgPolicy = mask
             spg.root = Node(state, board, visitCount=1, prior=1)
 
-    def gameIsTerminal(self, spg: SPG, value: float, mates: int, returnMemory: list):
+    def gameIsTerminal(
+        self,
+        spg: SPG,
+        value: float,
+        mates: int,
+    ):
         # ? А сюда могут оба знака попасть?
         if value == 1 or value == -1:
             mates += 1
@@ -187,7 +195,7 @@ class BetaZero:
             else:
                 histActionProbs = mask
 
-            returnMemory.append((getEncodedState(histNeutralState), histActionProbs, histOutcome))
+            self.memory.append((getEncodedState(histNeutralState), histActionProbs, histOutcome))
 
     def updatePlots(self, lossPrior: float, lossValue: float, iteration: int):
         if not self.writer:
@@ -201,3 +209,35 @@ class BetaZero:
         #     self.ev()
         #     lossEval = self.train(memory, train=False)
         #     writer.add_scalar("LossEval/test", lossEval, iteration)
+
+    def train(
+        self, memory: list[tuple[NDArray[np.floating], NDArray[np.floating], float]], train: bool = True
+    ) -> tuple[float, float]:
+        # TODO: all to np arrays?
+        random.shuffle(memory)
+        valLoss = 0
+        priorLoss = 0
+        for batchIdx in range(0, len(memory), self.args["batchSize"]):
+            sample = memory[batchIdx : min(len(memory), batchIdx + self.args["batchSize"])]
+            state, policyTargets, valueTargets = zip(*sample)
+            state, policyTargets, valueTargets = (
+                np.array(state),
+                np.array(policyTargets),
+                np.array(valueTargets).reshape(-1, 1),
+            )
+            # TODO: can torch recieve lists?
+            state = torch.tensor(state, dtype=torch.float64).to(f'{self.args["device"]}')
+            policyTargets = torch.tensor(policyTargets, dtype=torch.float64).to(f'{self.args["device"]}')
+            valueTargets = torch.tensor(valueTargets, dtype=torch.float64).to(f'{self.args["device"]}')
+            outPolicy, outValue = self.model(state)
+            policyLoss = F.cross_entropy(outPolicy, policyTargets)
+            valueLoss = F.mse_loss(outValue, valueTargets)
+            loss = policyLoss + valueLoss
+            valLoss += valueLoss.item()
+            priorLoss += policyLoss.item()
+            # TODO: why is "if" here?
+            if train:
+                self.optimizer.zero_grad()
+                loss.backward()
+                self.optimizer.step()
+        return valLoss / (len(memory) / self.args["batchSize"]), priorLoss / (len(memory) / self.args["batchSize"])
