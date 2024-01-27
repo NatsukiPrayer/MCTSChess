@@ -9,6 +9,8 @@ from helpers.chessBoard import posFromFen
 
 
 class ChessGame:
+    actionSize = 4096
+
     def __init__(self):
         self.fens = [
             "r6r/6R1/p6p/7k/5R2/6PP/2P5/2K5 w - - 0 1",

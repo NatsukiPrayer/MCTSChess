@@ -90,21 +90,17 @@ class BetaZero:
                 step = math.ceil(len(self.spGames) / poolSize)
                 # TODO: Проверить как работает пул
                 # нужно ли перпесоздавать его на каждый ход или поддерживать старый
+                # statesPool = [states[i : i + step] for i in range(0, len(self.spGames), step)]
+                # spGamesPool = [self.spGames[i : i + step] for i in range(0, len(self.spGames), step)]
+
                 with mp.Pool(poolSize) as pool:
-                    for result in pool.map(
-                        self.mcts.search,  # type: ignore
-                        list(
-                            zip(
-                                *[
-                                    (states[i : i + step], self.spGames[i : i + step])
-                                    for i in range(0, len(self.spGames), step)
-                                ]
-                            )
-                        ),
+                    for result in pool.starmap(
+                        self.mcts.search,
+                        [(states[i : i + step], self.spGames[i : i + step]) for i in range(0, len(self.spGames), step)],
                     ):
                         actions += result
             else:
-                actions = [self.mcts.search(states, self.spGames)]
+                actions = self.mcts.search(states, self.spGames)
 
             # TODO: вынести в отдельдую функцию
             for i in range(len(self.spGames)):
@@ -118,7 +114,8 @@ class BetaZero:
                 if "max_game_length" in self.args and self.args["max_game_length"] == idx and not isTerminal:
                     value = 0
                     isTerminal = True
-                elif isTerminal:
+
+                if isTerminal:
                     self.gameIsTerminal(self.spGames[i], value, mates)
                     del self.spGames[i]
                 else:
@@ -126,9 +123,13 @@ class BetaZero:
                     # self.spGames[i].state = changePerspective(self.spGames[i].state)
                     # ? Можно ли привязаться к 0 инлексу при выборе для эвал игр и игр с человеком
                     # ? при этом оставив случайное действие для обучения
-                    self.spGames[i].root = [
-                        x for x in self.spGames[i].root.children if x.board == self.spGames[i].board
-                    ][0]
+                    selected = [x for x in self.spGames[i].root.children if x.board == self.spGames[i].board]
+                    if len(selected) > 0:
+                        self.spGames[i].root = selected[0]
+                    else:
+                        self.spGames[i].root = [
+                            x for x in self.spGames[i].root.noChildren if x.board == self.spGames[i].board
+                        ][0]
                 player = not player
                 idx += 1
         tqdm.write(f"Results: {mates}/{self.args['numParallelGames']}\n")
@@ -232,9 +233,9 @@ class BetaZero:
                 np.array(valueTargets).reshape(-1, 1),
             )
             # TODO: can torch recieve lists?
-            state = torch.tensor(state, dtype=torch.float64).to(f'{self.args["device"]}')
-            policyTargets = torch.tensor(policyTargets, dtype=torch.float64).to(f'{self.args["device"]}')
-            valueTargets = torch.tensor(valueTargets, dtype=torch.float64).to(f'{self.args["device"]}')
+            state = torch.tensor(state, dtype=torch.float32).to(f'{self.args["device"]}')
+            policyTargets = torch.tensor(policyTargets, dtype=torch.float32).to(f'{self.args["device"]}')
+            valueTargets = torch.tensor(valueTargets, dtype=torch.float32).to(f'{self.args["device"]}')
             outPolicy, outValue = self.model(state)
             policyLoss = F.cross_entropy(outPolicy, policyTargets)
             valueLoss = F.mse_loss(outValue, valueTargets)

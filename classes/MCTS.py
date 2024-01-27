@@ -57,7 +57,7 @@ class MCTS:
                 validMoves = getValidMoves(node.board)  # type: ignore
                 mask = np.zeros(4096)
                 for move in validMoves:
-                    mask[encode(str(move))] = 1
+                    mask[move] = 1
                 if node.board.turn == chess.BLACK:  # type: ignore
                     mask = np.flip(mask)
                 spgPolicy *= mask
@@ -82,7 +82,11 @@ class MCTS:
 
             actionProbs = actionProbs ** (1 / self.args["temperature"])
 
-            actionProbs /= np.sum(actionProbs)
+            actionsProbsSum = np.sum(actionProbs)
+            if actionsProbsSum > 0:
+                actionProbs /= actionsProbsSum
+            else:
+                actionProbs = mask
             spgVal = spg.root.valueSum / spg.root.visitCount
             spgVal = spgVal if spg.root.board.turn else -spgVal
             actions.append((spg.root.state, actionProbs, spgVal, mask))

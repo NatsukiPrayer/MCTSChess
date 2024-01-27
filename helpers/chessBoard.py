@@ -73,7 +73,7 @@ def getValidMoves(board: chess.Board):
     return [encode(str(move)) for move in board.legal_moves]
 
 
-def changePerspective(state: NDArray[np.float64]):
+def changePerspective(state: NDArray[np.float32]):
     if len(state.shape) == 3:
         return np.rot90((state * -1), 2, axes=(1, 2))
     return np.rot90((state * -1), 2)
@@ -115,5 +115,5 @@ def getEncodedState(state: NDArray[np.floating]):
         )
     ).astype(np.floating)
     if len(state.shape) == 3:
-        encodedState = np.swapaxes(encodedState, 0, 1)
+        encodedState = np.swapaxes(encodedState, 0, 1).astype(np.float32)
     return encodedState
