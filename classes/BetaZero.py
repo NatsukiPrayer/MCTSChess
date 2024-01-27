@@ -119,17 +119,23 @@ class BetaZero:
                     self.gameIsTerminal(self.spGames[i], value, mates)
                     del self.spGames[i]
                 else:
-                    # TODO: понять делается на доске ход
+                    # TODO: понять делается ли на доске ход
+                    # TODO: походу состояние дерева не обновляется
                     # self.spGames[i].state = changePerspective(self.spGames[i].state)
                     # ? Можно ли привязаться к 0 инлексу при выборе для эвал игр и игр с человеком
                     # ? при этом оставив случайное действие для обучения
-                    selected = [x for x in self.spGames[i].root.children if x.board == self.spGames[i].board]
-                    if len(selected) > 0:
-                        self.spGames[i].root = selected[0]
+                    if len(self.spGames[i].root.children) > 0:
+                        self.spGames[i].root = self.spGames[i].root.children[0]
                     else:
-                        self.spGames[i].root = [
-                            x for x in self.spGames[i].root.noChildren if x.board == self.spGames[i].board
-                        ][0]
+                        self.spGames[i].root = self.spGames[i].root.noChildren[0]
+                    # selected = [x for x in self.spGames[i].root.children if x.board == self.spGames[i].board]
+
+                    # if len(selected) > 0:
+                    #     self.spGames[i].root = selected[0]
+                    # else:
+                    #     self.spGames[i].root = [
+                    #         x for x in self.spGames[i].root.noChildren if x.board == self.spGames[i].board
+                    #     ][0]
                 player = not player
                 idx += 1
         tqdm.write(f"Results: {mates}/{self.args['numParallelGames']}\n")

@@ -20,6 +20,8 @@ class MCTS:
         # TODO: define policy type correctly
         policy = torch.softmax(policy, axis=1).cpu().numpy()  # type:ignore
 
+        # ! TODO: we always stays in root node
+        # ? TODO: where root.children should be selected?
         # TODO: can we get rid of self.args?
         for _ in range(self.args["num_searches"]):
             for spg in spGames:
