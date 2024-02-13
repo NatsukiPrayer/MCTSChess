@@ -9,6 +9,7 @@ __pycache__
 *.txt
 *.pt
 *.tiff
+*.prof
 
 configs
 treeSaves
@@ -16,3 +17,5 @@ treeSaves
 
 logdir
 Old*
+
+test.py

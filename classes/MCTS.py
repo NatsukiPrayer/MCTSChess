@@ -5,7 +5,7 @@ from numpy.typing import NDArray
 from typing import List
 from classes.SPG import SPG
 from classes.ChessGame import ChessGame
-from helpers.chessBoard import getEncodedState, getValAndTerminate, getValidMoves, encode
+from helpers.chessBoard import getEncodedState, getValAndTerminate, getValidMoves
 
 
 class MCTS:
@@ -25,36 +25,33 @@ class MCTS:
         # TODO: can we get rid of self.args?
         for _ in range(self.args["num_searches"]):
             for spg in spGames:
-                spg.node = None
-                node = spg.root
+                node = spg.originalRoot
 
-                # while node.isFullyExpanded():
-                #     prevNode = node
-                #     node = node.select()
+                while node.isFullyExpanded():
+                    node = node.select()
 
                 value, isTerminal = getValAndTerminate(node.board)
                 value = value * -1
 
-                # TODO: understand what is going on here
                 if isTerminal:
                     node.backpropogate(value)
-                else:
-                    spg.node = node
 
+            # TODO: переписать нормально, зачем mappingIndx?
             expandableSpgames = [
-                mappingIndx for mappingIndx in range(len(spGames)) if spGames[mappingIndx].node is not None
+                mappingIndx for mappingIndx in range(len(spGames)) if len(spGames[mappingIndx].root.children) > 0
             ]
 
             if len(expandableSpgames) > 0:
                 # fmt: off
-                states = np.stack([spGames[mappingIndx].node.state for mappingIndx in expandableSpgames])  # type:ignore
+                states = np.stack([spGames[mappingIndx].root.state for mappingIndx in expandableSpgames])  # type:ignore
                 # fmt: on
                 policy, value = self.model(torch.tensor(getEncodedState(states), device=self.args["device"]))
                 policy = torch.softmax(policy, axis=1).cpu().numpy()  # type: ignore
                 value = value.cpu().numpy()
                 # boards = [spGames[mappingIndx].node.board for mappingIndx in expandableSpgames]
+
             for i, mappingIndx in enumerate(expandableSpgames):
-                node = spGames[mappingIndx].node
+                node = spGames[mappingIndx].root
                 spgPolicy, spgValue = policy[i], value[i]  # type: ignore
                 validMoves = getValidMoves(node.board)  # type: ignore
                 mask = np.zeros(4096)
@@ -93,7 +90,7 @@ class MCTS:
             spgVal = spgVal if spg.root.board.turn else -spgVal
             actions.append((spg.root.state, actionProbs, spgVal, mask))
         # self.drawer.update(spg.root)
-        return actions
+        return actions, spGames
         # backprop
 
     # return visit counts

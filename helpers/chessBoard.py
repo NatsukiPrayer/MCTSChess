@@ -115,5 +115,6 @@ def getEncodedState(state: NDArray[np.floating]):
         )
     ).astype(np.floating)
     if len(state.shape) == 3:
-        encodedState = np.swapaxes(encodedState, 0, 1).astype(np.float32)
-    return encodedState
+        encodedState = np.swapaxes(encodedState, 0, 1)
+
+    return encodedState.astype(np.float32)

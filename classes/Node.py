@@ -2,7 +2,7 @@ import math
 import chess
 from numpy import floating
 from numpy.typing import NDArray
-from helpers.chessBoard import changePerspective, encode, getNextState
+from helpers.chessBoard import changePerspective, getNextState, decode, letters  # , encode
 
 
 class Node:
@@ -33,10 +33,12 @@ class Node:
         self.prior = prior
         self.ucb = self.prior * self.C
 
-        if isinstance(actionTaken, int) or actionTaken is None:
-            self.actionTaken = actionTaken
-        else:
-            self.actionTaken = encode(actionTaken)  # type: ignore
+        # if isinstance(actionTaken, int) or actionTaken is None:
+        #     self.actionTaken = actionTaken
+        # else:
+        #     self.actionTaken = encode(actionTaken)  # type: ignore
+
+        self.actionTaken = actionTaken
 
         self.children: list[Node] = []
         self.noChildren: list[Node] = []
@@ -66,7 +68,13 @@ class Node:
                 childBoard = self.board.copy()
                 childState, childBoard = getNextState(childState, action, childBoard, color)
                 childState = changePerspective(childState)
-                child = Node(childState, childBoard, self, action)  # ? prior
+                child = Node(
+                    childState,
+                    childBoard,
+                    self,
+                    actionTaken=action,
+                    prior=spgPolicy[action],
+                )  # TODO: нормально переписать аргументы
                 self.noChildren.append(child)
 
         self.noChildren.sort(key=lambda x: x.ucb, reverse=True)
@@ -98,3 +106,21 @@ class Node:
                     self.parent.children.insert(0, self.parent.noChildren.pop(0))
 
             self.parent.backpropogate(value)
+
+    def find(self, action: int) -> "Node":
+        # ! TODO: найти доску по action среди детей
+        # rowFrom, colFrom, rowWhere, colWhere = decode(action, not self.board.turn)
+        # nextBoard = self.board.push_uci(f"{letters[colFrom]}{rowFrom+1}{letters[colWhere]}{rowWhere+1}")
+        # for child in self.children:
+        #     if child.board == nextBoard:
+        #         return child
+        # for child in self.noChildren:
+        #     if child.board == nextBoard:
+        #         return child
+        for node in self.children:
+            if action == node.actionTaken:
+                return node
+        for node in self.noChildren:
+            if action == node.actionTaken:
+                return node
+        raise IndexError("No such board")

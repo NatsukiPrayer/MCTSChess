@@ -2,6 +2,7 @@ import math
 import random
 import time
 import os
+from typing import List
 import chess
 import numpy as np
 from numpy.typing import NDArray
@@ -15,7 +16,7 @@ from classes.NN import ResNet
 from classes.Node import Node
 from classes.SPG import SPG
 from classes.MCTS import MCTS
-from helpers.chessBoard import getEncodedState, getNextState, getValAndTerminate, getValidMoves
+from helpers.chessBoard import getEncodedState, getValAndTerminate, getValidMoves
 
 
 class BetaZero:
@@ -31,7 +32,7 @@ class BetaZero:
         if "track" in self.args and self.args["track"] is True:
             self.writer = SummaryWriter(f"logdir/{time.time()}")
 
-        self.spGames: list[SPG] = []
+        self.mcts = MCTS(self.model, self.args)
         self.memory: list[tuple[NDArray[np.floating], NDArray[np.floating], float]] = []
 
         self.poolSize = 1
@@ -47,10 +48,10 @@ class BetaZero:
             selfPlayIterations = tqdm(range(self.args["numSelfPlayIterations"]), leave=False)
             selfPlayIterations.set_description("Self plays")
 
-            self.spGames: list[SPG] = [SPG(ChessGame()) for _ in range(self.args["numParallelGames"])]
+            self.model.eval()
 
             for _ in selfPlayIterations:
-                memory += self.selfPlay()
+                memory += self.selfPlay([SPG(ChessGame()) for _ in range(self.args["numParallelGames"])])
 
             self.model.train()
             lossValue, lossPrior = 0, 0
@@ -62,72 +63,106 @@ class BetaZero:
 
             self.updatePlots(lossPrior, lossValue, iteration)
             if "saveFrequency" not in self.args or iteration % self.args["saveFrequency"] == 0:
-                torch.save(self.model.state_dict(), f"model_{iteration}.pt")
-                torch.save(self.optimizer.state_dict(), f"optimizer_{iteration}.pt")
+                torch.save(self.model.state_dict(), f"{self.args['newModelsDir']}/model_{iteration}.pt")
+                torch.save(self.optimizer.state_dict(), f"{self.args['newOptimizersDir']}/optimizer_{iteration}.pt")
 
-    def selfPlay(self):
+    def selfPlay(self, spgs: List[SPG]):
         idx = 0
         player = True
         mates = 0
-        self.model.eval()
-        self.mcts = MCTS(self.model, self.args)
-        self.initRoots()
+        self.initRoots(spgs)
 
-        while len(self.spGames) > 0:
+        while len(spgs) > 0:
             tqdm.write(
-                f"{idx+1} turn\nRemaining Games {len(self.spGames)}/{self.args['numParallelGames']}\n"
-                f"mates: {mates}/{self.args['numParallelGames']-len(self.spGames)}"
+                f"{idx+1} turn\nRemaining Games {len(spgs)}/{self.args['numParallelGames']}\n"
+                f"mates: {mates}/{self.args['numParallelGames']-len(spgs)}"
             )
-            firstBoards = [str(game.board).split("\n") for game in self.spGames[:10]]
+            firstBoards = [str(game.board).split("\n") for game in spgs[:10]]
             boardStates = "\n".join("".join([f"{el:20}" for el in row]) for row in zip(*firstBoards))
             tqdm.write(f"{boardStates}\n")
 
-            states = np.stack([spg.state for spg in self.spGames])
+            states = np.stack([spg.state for spg in spgs])
 
             if self.args["numParallelGames"] > 1:
                 actions = []
-                poolSize = min(self.poolSize, len(self.spGames))
-                step = math.ceil(len(self.spGames) / poolSize)
+                poolSize = min(self.poolSize, len(spgs))
+                step = math.ceil(len(spgs) / poolSize)
                 # TODO: Проверить как работает пул
                 # нужно ли перпесоздавать его на каждый ход или поддерживать старый
                 # statesPool = [states[i : i + step] for i in range(0, len(self.spGames), step)]
                 # spGamesPool = [self.spGames[i : i + step] for i in range(0, len(self.spGames), step)]
 
                 with mp.Pool(poolSize) as pool:
-                    for result in pool.starmap(
+                    for result, updateSpGames in pool.starmap(
                         self.mcts.search,
-                        [(states[i : i + step], self.spGames[i : i + step]) for i in range(0, len(self.spGames), step)],
+                        [(states[i : i + step], spgs[i : i + step]) for i in range(0, len(spgs), step)],
                     ):
                         actions += result
+                        spgs = updateSpGames
             else:
-                actions = self.mcts.search(states, self.spGames)
+                actions, spgs = self.mcts.search(states, spgs)
 
             # TODO: вынести в отдельдую функцию
-            for i in range(len(self.spGames)):
+            for i in range(len(spgs) - 1, -1, -1):
                 # TODO: What is actually returned and why do we need so much nested lists?
                 action = np.random.choice(ChessGame.actionSize, p=actions[i][1])
-                self.spGames[i].memory.append((actions[i][0], actions[i][1], action, actions[i][3]))
-                self.spGames[i].state, self.spGames[i].board = getNextState(
-                    self.spGames[i].state, action, board := self.spGames[i].board, board.turn == chess.WHITE
-                )
-                value, isTerminal = getValAndTerminate(board)
-                if "max_game_length" in self.args and self.args["max_game_length"] == idx and not isTerminal:
+                spgs[i].memory.append((actions[i][0], actions[i][1], action, actions[i][3]))
+                spgs[i].root = spgs[i].root.find(action)  # type: ignore
+                # spgs[i].state, spgs[i].board = getNextState(
+                #     spgs[i].state, action, board := spgs[i].board, board.turn == chess.WHITE
+                # )
+                value, isTerminal = getValAndTerminate(spgs[i].root.board)  # type: ignore
+                if "max_game_length" in self.args and self.args["max_game_length"] - 1 <= idx and not isTerminal:
                     value = 0
                     isTerminal = True
 
                 if isTerminal:
-                    self.gameIsTerminal(self.spGames[i], value, mates)
-                    del self.spGames[i]
+                    # ? А сюда могут оба знака попасть?
+                    if value == 1 or value == -1:
+                        mates += 1
+                    # ? Как это вообще работает?
+                    self.gameIsTerminal(spgs[i], value)
+                    del spgs[i]
                 else:
                     # TODO: понять делается ли на доске ход
                     # TODO: походу состояние дерева не обновляется
                     # self.spGames[i].state = changePerspective(self.spGames[i].state)
                     # ? Можно ли привязаться к 0 инлексу при выборе для эвал игр и игр с человеком
                     # ? при этом оставив случайное действие для обучения
-                    if len(self.spGames[i].root.children) > 0:
-                        self.spGames[i].root = self.spGames[i].root.children[0]
-                    else:
-                        self.spGames[i].root = self.spGames[i].root.noChildren[0]
+                    # spgs[i].root = spgs[i].node
+                    # if len(self.spGames[i].root.children) == 0:
+                    #     self.spGames[i].root = self.spGames[i].root.expand()
+
+                    # if len(self.spGames[i].root.children) > 0:
+                    #     # self.spGames[i].root = self.spGames[i].root.children[0]
+                    #     self.spGames[i].root = self.spGames[i].root.find(action)
+                    #     # TODO: переписать функцию чтобы не копировать все это
+                    #     if len(self.spGames[i].root.children) == 0:
+                    #         state = self.spGames[i].root.state
+                    #         board = self.spGames[i].root.board
+
+                    #         policy, _ = self.model(
+                    #             torch.tensor(np.squeeze(getEncodedState(state), axis=1), device=self.args["device"])
+                    #         )
+                    #         policy = torch.softmax(policy, axis=1).cpu().detach().numpy()  # type:ignore
+
+                    #         spgPolicy = (1 - self.args["dirichlet_epsilon"]) * policy
+                    #         spgPolicy += self.args["dirichlet_epsilon"] * np.random.dirichlet(
+                    #             [self.args["dirichlet_alpha"]] * ChessGame.actionSize
+                    #         )
+                    #         validMoves = getValidMoves(board)
+                    #         mask = np.where(np.isin(np.arange(ChessGame.actionSize), validMoves), 1, 0)
+                    #         if board.turn == chess.BLACK:
+                    #             mask = np.flip(mask)
+                    #         spgPolicy *= mask
+                    #         spSum = np.sum(spgPolicy)
+                    #         if spSum > 0:
+                    #             spgPolicy /= spSum
+                    #         else:
+                    #             spgPolicy = mask
+                    #         self.spGames[i].root.expand(spgPolicy, self.spGames[i].root.board.turn == chess.WHITE)
+                    #     else:
+                    #         self.spGames[i].root = self.spGames[i].root.noChildren[0]
                     # selected = [x for x in self.spGames[i].root.children if x.board == self.spGames[i].board]
 
                     # if len(selected) > 0:
@@ -136,19 +171,19 @@ class BetaZero:
                     #     self.spGames[i].root = [
                     #         x for x in self.spGames[i].root.noChildren if x.board == self.spGames[i].board
                     #     ][0]
-                player = not player
-                idx += 1
+                    player = not player
+                    idx += 1
         tqdm.write(f"Results: {mates}/{self.args['numParallelGames']}\n")
         return self.memory
 
-    def initRoots(self):
-        states = np.stack([spg.state for spg in self.spGames])
-        boards = [spg.board for spg in self.spGames]
+    def initRoots(self, spgs: List[SPG]):
+        states = np.stack([spg.state for spg in spgs])
+        boards = [spg.board for spg in spgs]
 
         policy, _ = self.model(torch.tensor(getEncodedState(states), device=self.args["device"]))
         policy = torch.softmax(policy, axis=1).cpu().detach().numpy()  # type:ignore
 
-        for spg, state, board, spgPolicy in zip(self.spGames, states, boards, policy):
+        for spg, state, board, spgPolicy in zip(spgs, states, boards, policy):
             spgPolicy = (1 - self.args["dirichlet_epsilon"]) * spgPolicy
             spgPolicy += self.args["dirichlet_epsilon"] * np.random.dirichlet(
                 [self.args["dirichlet_alpha"]] * ChessGame.actionSize
@@ -170,11 +205,7 @@ class BetaZero:
         self,
         spg: SPG,
         value: float,
-        mates: int,
     ):
-        # ? А сюда могут оба знака попасть?
-        if value == 1 or value == -1:
-            mates += 1
         memoryLen = math.ceil(len(spg.memory) / 2)
         for turn, tup in enumerate(spg.memory):
             histNeutralState, histActionProbs, action, mask = tup
